@@ -1,7 +1,9 @@
 'use client'
 import { useEffect, useState } from 'react'
-import GraficoPizza from './GraficoPizza'
+import GraficoBarras from './GraficoBarras'
+import GraficoLinha from './GraficoLinha'
 import GraficoProgresso from './GraficoProgresso'
+import Historico from './Historico'
 import { GastosMensais } from '../types/types'
 
 export default function Dashboard() {
@@ -18,21 +20,39 @@ export default function Dashboard() {
 
   const latest = gastos[gastos.length - 1]
   const sobra = latest
-    ? latest.salarioLiquido -
+    ? latest.salarioLiquido +
+      latest.flashRecebido -
       latest.cartaoCredito -
       latest.contasFixas -
       latest.hashishGramas * 90 -
-      latest.flash
+      latest.mercado -
+      latest.gasolina
     : 0
 
-  const dataPizza = latest
+  const dataBarras = latest
     ? [
         { name: 'Cartão', value: latest.cartaoCredito },
         { name: 'Contas', value: latest.contasFixas },
         { name: 'Hashish', value: latest.hashishGramas * 90 },
-        { name: 'Flash', value: latest.flash },
+        { name: 'Mercado', value: latest.mercado },
+        { name: 'Gasolina', value: latest.gasolina },
       ]
     : []
+
+  const dataLinha = gastos.map((g) => ({
+    name: g.mes,
+    sobra:
+      g.salarioLiquido +
+      g.flashRecebido -
+      g.cartaoCredito -
+      g.contasFixas -
+      g.hashishGramas * 90 -
+      g.mercado -
+      g.gasolina,
+  }))
+
+  const acumulado = dataLinha.reduce((acc, d) => acc + d.sobra, 0)
+  const mesesRestantes = sobra > 0 ? Math.ceil((12000 - acumulado) / sobra) : 0
 
   const sobraClass = sobra >= 0 ? 'text-green-600' : 'text-red-600'
 
@@ -42,8 +62,13 @@ export default function Dashboard() {
         <span className="block text-sm text-gray-500">Sobra mensal estimada</span>
         <span className={`text-2xl font-bold ${sobraClass}`}>R${sobra}</span>
       </div>
-      <GraficoPizza data={dataPizza} />
-      <GraficoProgresso meta={12000} acumulado={sobra} />
+      <GraficoBarras data={dataBarras} />
+      <GraficoLinha data={dataLinha} />
+      <GraficoProgresso meta={12000} acumulado={acumulado} />
+      <p className="text-center text-sm text-gray-600">
+        Você vai atingir R$12k em {mesesRestantes} meses
+      </p>
+      <Historico registros={gastos} />
     </div>
   )
 }

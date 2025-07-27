@@ -7,7 +7,10 @@ export default function Formulario() {
   const [cartaoCredito, setCartaoCredito] = useState(0)
   const [contasFixas, setContasFixas] = useState(0)
   const [hashishGramas, setHashishGramas] = useState(0)
-  const [flash, setFlash] = useState(700)
+  const [mercado, setMercado] = useState(0)
+  const [gasolina, setGasolina] = useState(0)
+  const [flashRecebido, setFlashRecebido] = useState(700)
+  const [metaEconomia, setMetaEconomia] = useState(0)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -20,7 +23,10 @@ export default function Formulario() {
         cartaoCredito,
         contasFixas,
         hashishGramas,
-        flash,
+        mercado,
+        gasolina,
+        flashRecebido,
+        metaEconomia,
       }),
     })
   }
@@ -63,9 +69,30 @@ export default function Formulario() {
       />
       <input
         className="border p-2 w-full"
-        value={flash}
-        onChange={(e) => setFlash(Number(e.target.value))}
-        placeholder="Flash"
+        value={mercado}
+        onChange={(e) => setMercado(Number(e.target.value))}
+        placeholder="Mercado"
+        type="number"
+      />
+      <input
+        className="border p-2 w-full"
+        value={gasolina}
+        onChange={(e) => setGasolina(Number(e.target.value))}
+        placeholder="Gasolina"
+        type="number"
+      />
+      <input
+        className="border p-2 w-full"
+        value={flashRecebido}
+        onChange={(e) => setFlashRecebido(Number(e.target.value))}
+        placeholder="Flash recebido"
+        type="number"
+      />
+      <input
+        className="border p-2 w-full"
+        value={metaEconomia}
+        onChange={(e) => setMetaEconomia(Number(e.target.value))}
+        placeholder="Meta de economia"
         type="number"
       />
       <button className="bg-blue-500 text-white px-4 py-2" type="submit">

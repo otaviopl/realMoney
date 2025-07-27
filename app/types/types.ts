@@ -6,7 +6,10 @@ export interface GastosMensais {
   cartaoCredito: number
   contasFixas: number
   hashishGramas: number
-  flash: number
+  mercado: number
+  gasolina: number
+  flashRecebido: number
+  metaEconomia: number
 }
 
 export interface MetaCarro {
