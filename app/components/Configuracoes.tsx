@@ -7,7 +7,8 @@ import {
   DollarSign, 
   Settings,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  HelpCircle
 } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import type { Configuracoes } from '../types/types'
@@ -137,6 +138,13 @@ export default function Configuracoes() {
             <div className="flex items-center space-x-3">
               <Target className="h-5 w-5 text-gray-400" />
               <h3 className="text-lg font-semibold text-gray-900">Meta de Reserva</h3>
+              <div className="group relative">
+                <HelpCircle className="h-4 w-4 text-gray-400 cursor-help" />
+                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                  Usado para calcular previsão de tempo
+                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                </div>
+              </div>
             </div>
             
             <div>
@@ -167,6 +175,13 @@ export default function Configuracoes() {
             <div className="flex items-center space-x-3">
               <DollarSign className="h-5 w-5 text-gray-400" />
               <h3 className="text-lg font-semibold text-gray-900">Saldo Inicial</h3>
+              <div className="group relative">
+                <HelpCircle className="h-4 w-4 text-gray-400 cursor-help" />
+                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                  Adicionado ao cálculo de evolução
+                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                </div>
+              </div>
             </div>
             
             <div>

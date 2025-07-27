@@ -17,7 +17,9 @@ import {
   PieChart,
   Activity,
   ArrowRight,
-  Plus
+  Plus,
+  HelpCircle,
+  Info
 } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { mockGastos, mockConfig } from '../lib/mockData'
@@ -44,6 +46,7 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'historico' | 'configuracoes' | 'formulario'>('dashboard')
   const [selectedMonth, setSelectedMonth] = useState<GastosMensais | null>(null)
   const [showMonthSelector, setShowMonthSelector] = useState(false)
+  const [editingMonth, setEditingMonth] = useState<GastosMensais | null>(null)
 
   useEffect(() => {
     carregarDados()
@@ -162,19 +165,21 @@ export default function Dashboard() {
   }
 
   const calcularSobra = (item: GastosMensais) => {
-    const totalGastos = item.cartaoCredito + item.contasFixas + item.hashish + item.mercado + item.gasolina
-    return item.salarioLiquido + item.flash - totalGastos
+    const custoHashish = item.hashish * 95; // Calculate total cost of hashish
+    const totalGastos = item.cartaoCredito + item.contasFixas + custoHashish + item.mercado + item.gasolina;
+    return item.salarioLiquido + item.flash - totalGastos;
   }
 
   const calcularDadosGraficoGastos = (): GraficoGastos[] => {
     if (!selectedMonth) return []
 
-    const totalGastos = selectedMonth.cartaoCredito + selectedMonth.contasFixas + selectedMonth.hashish + selectedMonth.mercado + selectedMonth.gasolina
+    const custoHashish = selectedMonth.hashish * 95; // Calculate total cost of hashish
+    const totalGastos = selectedMonth.cartaoCredito + selectedMonth.contasFixas + custoHashish + selectedMonth.mercado + selectedMonth.gasolina;
 
     return [
       { categoria: 'Cartão de Crédito', valor: selectedMonth.cartaoCredito, porcentagem: (selectedMonth.cartaoCredito / totalGastos) * 100 },
       { categoria: 'Contas Fixas', valor: selectedMonth.contasFixas, porcentagem: (selectedMonth.contasFixas / totalGastos) * 100 },
-      { categoria: 'Hashish', valor: selectedMonth.hashish, porcentagem: (selectedMonth.hashish / totalGastos) * 100 },
+      { categoria: 'Hashish', valor: custoHashish, porcentagem: (custoHashish / totalGastos) * 100 },
       { categoria: 'Mercado', valor: selectedMonth.mercado, porcentagem: (selectedMonth.mercado / totalGastos) * 100 },
       { categoria: 'Gasolina', valor: selectedMonth.gasolina, porcentagem: (selectedMonth.gasolina / totalGastos) * 100 },
     ]
@@ -224,6 +229,7 @@ export default function Dashboard() {
       alert('Funcionalidade de edição disponível apenas com Supabase configurado')
     } else {
       setSelectedMonth(item)
+      setEditingMonth(item) // Define o mês para edição
       setActiveTab('formulario')
     }
   }
@@ -400,7 +406,16 @@ export default function Dashboard() {
                   className="bg-white rounded-xl shadow-sm border border-gray-200 p-6"
                 >
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-medium text-gray-500">Saldo Atual</h3>
+                    <div className="flex items-center space-x-2">
+                      <h3 className="text-sm font-medium text-gray-500">Saldo Atual</h3>
+                      <div className="group relative">
+                        <HelpCircle className="h-4 w-4 text-gray-400 cursor-help" />
+                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                          Salário + Flash - Total de Gastos
+                          <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                        </div>
+                      </div>
+                    </div>
                     <DollarSign className="h-5 w-5 text-gray-400" />
                   </div>
                   <div className="flex items-baseline">
@@ -412,6 +427,13 @@ export default function Dashboard() {
                       +12%
                     </span>
                   </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    {selectedMonth && (
+                      <>
+                        R$ {selectedMonth.salarioLiquido.toLocaleString('pt-BR')} + R$ {selectedMonth.flash.toLocaleString('pt-BR')} - R$ {(selectedMonth.cartaoCredito + selectedMonth.contasFixas + selectedMonth.hashish + selectedMonth.mercado + selectedMonth.gasolina).toLocaleString('pt-BR')}
+                      </>
+                    )}
+                  </p>
                 </motion.div>
 
                 {/* Economia */}
@@ -420,7 +442,16 @@ export default function Dashboard() {
                   className="bg-white rounded-xl shadow-sm border border-gray-200 p-6"
                 >
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-medium text-gray-500">Economia</h3>
+                    <div className="flex items-center space-x-2">
+                      <h3 className="text-sm font-medium text-gray-500">Economia</h3>
+                      <div className="group relative">
+                        <HelpCircle className="h-4 w-4 text-gray-400 cursor-help" />
+                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                          Meta de economia mensal definida
+                          <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                        </div>
+                      </div>
+                    </div>
                     <PiggyBank className="h-5 w-5 text-gray-400" />
                   </div>
                   <div className="flex items-baseline">
@@ -429,6 +460,9 @@ export default function Dashboard() {
                     </span>
                     <span className="ml-2 text-sm text-gray-500">meta</span>
                   </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Valor que você planeja economizar por mês
+                  </p>
                 </motion.div>
 
                 {/* Meta de Reserva */}
@@ -437,7 +471,16 @@ export default function Dashboard() {
                   className="bg-white rounded-xl shadow-sm border border-gray-200 p-6"
                 >
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-medium text-gray-500">Meta de Reserva</h3>
+                    <div className="flex items-center space-x-2">
+                      <h3 className="text-sm font-medium text-gray-500">Meta de Reserva</h3>
+                      <div className="group relative">
+                        <HelpCircle className="h-4 w-4 text-gray-400 cursor-help" />
+                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                          Valor total que você quer acumular
+                          <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                        </div>
+                      </div>
+                    </div>
                     <Target className="h-5 w-5 text-gray-400" />
                   </div>
                   <div className="flex items-baseline">
@@ -445,6 +488,9 @@ export default function Dashboard() {
                       R$ {config?.metaReserva?.toLocaleString('pt-BR') || '12.000'}
                     </span>
                   </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Valor total para sua reserva de emergência
+                  </p>
                 </motion.div>
 
                 {/* Status */}
@@ -453,7 +499,16 @@ export default function Dashboard() {
                   className="bg-white rounded-xl shadow-sm border border-gray-200 p-6"
                 >
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-medium text-gray-500">Status</h3>
+                    <div className="flex items-center space-x-2">
+                      <h3 className="text-sm font-medium text-gray-500">Status</h3>
+                      <div className="group relative">
+                        <HelpCircle className="h-4 w-4 text-gray-400 cursor-help" />
+                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                          Baseado na sobra vs meta mensal
+                          <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                        </div>
+                      </div>
+                    </div>
                     {(() => {
                       const mood = getMoodAvatar()
                       return (
@@ -464,6 +519,13 @@ export default function Dashboard() {
                     })()}
                   </div>
                   <p className="text-sm text-gray-700">{getMoodAvatar().message}</p>
+                  <p className="text-xs text-gray-500 mt-2">
+                    {selectedMonth && (
+                      <>
+                        Sobra: R$ {calcularSobra(selectedMonth).toLocaleString('pt-BR')} | Meta: R$ {selectedMonth.metaEconomia.toLocaleString('pt-BR')}
+                      </>
+                    )}
+                  </p>
                 </motion.div>
               </motion.div>
 
@@ -591,6 +653,94 @@ export default function Dashboard() {
                   </div>
                 </motion.div>
               )}
+
+              {/* Seção de Explicação dos Cálculos */}
+              <motion.div
+                variants={cardVariants}
+                initial="hidden"
+                animate="visible"
+                className="bg-white rounded-xl shadow-sm border border-gray-200 p-6"
+              >
+                <div className="flex items-center space-x-3 mb-6">
+                  <div className="p-2 bg-gray-100 rounded-lg">
+                    <Info className="h-5 w-5 text-gray-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Como são calculados os dados?</h3>
+                    <p className="text-gray-500">Entenda a lógica por trás dos números</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="font-medium text-gray-900 mb-2">Saldo Atual</h4>
+                      <div className="bg-gray-50 p-3 rounded-lg">
+                        <p className="text-sm text-gray-700">
+                          <strong>Fórmula:</strong> Salário Líquido + Flash - Total de Gastos
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Total de Gastos = Cartão + Contas Fixas + Hashish + Mercado + Gasolina
+                        </p>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className="font-medium text-gray-900 mb-2">Status do Mês</h4>
+                      <div className="bg-gray-50 p-3 rounded-lg">
+                        <p className="text-sm text-gray-700">
+                          <strong>Verde:</strong> Sobra &gt;= Meta mensal
+                        </p>
+                        <p className="text-sm text-gray-700">
+                          <strong>Amarelo:</strong> Sobra &gt;= 70% da meta
+                        </p>
+                        <p className="text-sm text-gray-700">
+                          <strong>Vermelho:</strong> Sobra &lt; 70% da meta
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="font-medium text-gray-900 mb-2">Evolução do Saldo</h4>
+                      <div className="bg-gray-50 p-3 rounded-lg">
+                        <p className="text-sm text-gray-700">
+                          <strong>Cálculo:</strong> Soma acumulada das sobras mensais
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Mostra o crescimento do seu patrimônio ao longo do tempo
+                        </p>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className="font-medium text-gray-900 mb-2">Previsão de Meta</h4>
+                      <div className="bg-gray-50 p-3 rounded-lg">
+                        <p className="text-sm text-gray-700">
+                          <strong>Fórmula:</strong> (Meta Total - Valor Atual) / Média de Sobra Mensal
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Baseado na média histórica dos últimos meses
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-start space-x-3">
+                    <Info className="h-5 w-5 text-blue-500 mt-0.5" />
+                    <div>
+                      <h4 className="font-medium text-blue-900 mb-1">Dica</h4>
+                      <p className="text-sm text-blue-700">
+                        Quanto mais dados você adicionar, mais precisas serão as previsões e insights. 
+                        Mantenha seus registros atualizados para ter uma visão clara do seu progresso financeiro.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
             </motion.div>
           )}
 
@@ -620,16 +770,23 @@ export default function Dashboard() {
             </motion.div>
           )}
 
-                     {activeTab === 'formulario' && (
-             <motion.div
-               key="formulario"
-               initial={{ opacity: 0 }}
-               animate={{ opacity: 1 }}
-               exit={{ opacity: 0 }}
-             >
-               <Formulario onBack={() => setActiveTab('dashboard')} />
-             </motion.div>
-           )}
+                               {activeTab === 'formulario' && (
+            <motion.div
+              key="formulario"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+                              <Formulario 
+                  onBack={() => {
+                    setActiveTab('dashboard')
+                    setEditingMonth(null) // Limpa o mês em edição
+                    carregarDados() // Recarrega os dados após edição
+                  }} 
+                  editingData={editingMonth}
+                />
+            </motion.div>
+          )}
         </AnimatePresence>
       </main>
 

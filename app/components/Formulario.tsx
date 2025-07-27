@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { 
   Save, 
@@ -11,16 +11,18 @@ import {
   Gift, 
   Target,
   Calendar,
-  ArrowLeft
+  ArrowLeft,
+  Info
 } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { GastosMensais } from '../types/types'
 
 interface Props {
   onBack?: () => void
+  editingData?: GastosMensais | null
 }
 
-export default function Formulario({ onBack }: Props) {
+export default function Formulario({ onBack, editingData }: Props) {
   const [formData, setFormData] = useState<Partial<GastosMensais>>({
     mes: '',
     salarioLiquido: 0,
@@ -33,6 +35,23 @@ export default function Formulario({ onBack }: Props) {
     metaEconomia: 0,
   })
   const [loading, setLoading] = useState(false)
+
+  // Carregar dados de edição quando disponíveis
+  useEffect(() => {
+    if (editingData) {
+      setFormData({
+        mes: editingData.mes,
+        salarioLiquido: editingData.salarioLiquido,
+        cartaoCredito: editingData.cartaoCredito,
+        contasFixas: editingData.contasFixas,
+        hashish: editingData.hashish,
+        mercado: editingData.mercado,
+        gasolina: editingData.gasolina,
+        flash: editingData.flash,
+        metaEconomia: editingData.metaEconomia,
+      })
+    }
+  }, [editingData])
 
   const handleChange = (field: keyof GastosMensais, value: string | number) => {
     setFormData(prev => ({
@@ -65,24 +84,52 @@ export default function Formulario({ onBack }: Props) {
           meta_economia: formData.metaEconomia,
         }
 
-        const { error } = await supabase
-          .from('gastos_mensais')
-          .insert([supabaseData])
+        if (editingData && editingData.id) {
+          // Atualizar registro existente
+          const { error } = await supabase
+            .from('gastos_mensais')
+            .update(supabaseData)
+            .eq('id', editingData.id)
 
-        if (error) throw error
-        alert('Dados salvos na nuvem com sucesso!')
+          if (error) throw error
+          alert('Dados atualizados na nuvem com sucesso!')
+        } else {
+          // Inserir novo registro
+          const { error } = await supabase
+            .from('gastos_mensais')
+            .insert([supabaseData])
+
+          if (error) throw error
+          alert('Dados salvos na nuvem com sucesso!')
+        }
       } else {
         // Usuário não logado - salvar localmente
         const gastos = JSON.parse(localStorage.getItem('gastos') || '[]')
-        const newGasto = {
-          ...formData,
-          id: Date.now(),
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
+        
+        if (editingData && editingData.id) {
+          // Atualizar registro existente
+          const index = gastos.findIndex((g: any) => g.id === editingData.id)
+          if (index !== -1) {
+            gastos[index] = {
+              ...formData,
+              id: editingData.id,
+              updatedAt: new Date().toISOString()
+            }
+            localStorage.setItem('gastos', JSON.stringify(gastos))
+            alert('Dados atualizados localmente!')
+          }
+        } else {
+          // Inserir novo registro
+          const newGasto = {
+            ...formData,
+            id: Date.now(),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          }
+          gastos.unshift(newGasto)
+          localStorage.setItem('gastos', JSON.stringify(gastos))
+          alert('Dados salvos localmente!')
         }
-        gastos.unshift(newGasto)
-        localStorage.setItem('gastos', JSON.stringify(gastos))
-        alert('Dados salvos localmente!')
       }
       
     } catch (error) {
@@ -91,15 +138,31 @@ export default function Formulario({ onBack }: Props) {
       // Fallback para localStorage
       try {
         const gastos = JSON.parse(localStorage.getItem('gastos') || '[]')
-        const newGasto = {
-          ...formData,
-          id: Date.now(),
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
+        
+        if (editingData && editingData.id) {
+          // Atualizar registro existente
+          const index = gastos.findIndex((g: any) => g.id === editingData.id)
+          if (index !== -1) {
+            gastos[index] = {
+              ...formData,
+              id: editingData.id,
+              updatedAt: new Date().toISOString()
+            }
+            localStorage.setItem('gastos', JSON.stringify(gastos))
+            alert('Dados atualizados localmente (fallback)!')
+          }
+        } else {
+          // Inserir novo registro
+          const newGasto = {
+            ...formData,
+            id: Date.now(),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          }
+          gastos.unshift(newGasto)
+          localStorage.setItem('gastos', JSON.stringify(gastos))
+          alert('Dados salvos localmente (fallback)!')
         }
-        gastos.unshift(newGasto)
-        localStorage.setItem('gastos', JSON.stringify(gastos))
-        alert('Dados salvos localmente (fallback)!')
       } catch (localError) {
         alert('Erro ao salvar dados')
         console.error('Erro no fallback:', localError)
@@ -144,7 +207,9 @@ export default function Formulario({ onBack }: Props) {
               <ArrowLeft className="h-5 w-5 text-gray-600" />
             </button>
           )}
-          <h1 className="text-3xl font-bold text-gray-900">Novo Mês</h1>
+          <h1 className="text-3xl font-bold text-gray-900">
+            {editingData ? 'Editar Mês' : 'Novo Mês'}
+          </h1>
         </div>
       </motion.div>
 
@@ -332,10 +397,31 @@ export default function Formulario({ onBack }: Props) {
               className="inline-flex items-center px-6 py-3 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <Save className="h-4 w-4 mr-2" />
-              {loading ? 'Salvando...' : 'Salvar'}
+              {loading ? (editingData ? 'Atualizando...' : 'Salvando...') : (editingData ? 'Atualizar' : 'Salvar')}
             </button>
           </div>
         </form>
+
+        {/* Seção de Ajuda */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="mt-8 p-6 bg-gray-50 rounded-lg"
+        >
+          <div className="flex items-start space-x-3">
+            <Info className="h-5 w-5 text-gray-400 mt-0.5" />
+            <div>
+              <h4 className="font-medium text-gray-900 mb-2">Como esses dados são usados?</h4>
+              <div className="space-y-2 text-sm text-gray-600">
+                <p><strong>Saldo Atual:</strong> Calculado como Salário + Flash - Total de Gastos</p>
+                <p><strong>Total de Gastos:</strong> Soma de Cartão + Contas Fixas + Hashish + Mercado + Gasolina</p>
+                <p><strong>Status do Mês:</strong> Compara a sobra com sua meta de economia mensal</p>
+                <p><strong>Evolução:</strong> Mostra o crescimento do seu patrimônio ao longo do tempo</p>
+              </div>
+            </div>
+          </div>
+        </motion.div>
       </motion.div>
     </div>
   )
