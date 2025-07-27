@@ -22,7 +22,7 @@ export default function Dashboard() {
       acc +
       g.cartaoCredito +
       g.contasFixas +
-      g.hashishGramas * 90 +
+      g.diversao +
       g.flash,
     0
   )
@@ -32,7 +32,7 @@ export default function Dashboard() {
   const dataPizza = [
     { name: 'Cartão', value: totalGastos ? gastos[gastos.length - 1].cartaoCredito : 0 },
     { name: 'Contas', value: totalGastos ? gastos[gastos.length - 1].contasFixas : 0 },
-    { name: 'Hashish', value: totalGastos ? gastos[gastos.length - 1].hashishGramas * 90 : 0 },
+    { name: 'Diversão', value: totalGastos ? gastos[gastos.length - 1].diversao : 0 },
     { name: 'Flash', value: totalGastos ? gastos[gastos.length - 1].flash : 0 },
   ]
 

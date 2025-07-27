@@ -4,7 +4,7 @@ export interface GastosMensais {
   salarioLiquido: number
   cartaoCredito: number
   contasFixas: number
-  hashishGramas: number
+  diversao: number
   flash: number
 }
 
