@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useToast } from '../lib/useToast'
 import { motion } from 'framer-motion'
 import { X, Save, User, ArrowUp, ArrowDown, Edit, Trash2, Plus } from 'lucide-react'
 import { Contato } from '../types/types'
@@ -18,6 +19,7 @@ export default function GerenciadorContatos({ isOpen, onClose, onSuccess }: Prop
     nome: '',
     tipo: '' as 'pagador' | 'recebedor' | ''
   })
+  const toast = useToast()
 
   useEffect(() => {
     if (isOpen) {
@@ -41,7 +43,7 @@ export default function GerenciadorContatos({ isOpen, onClose, onSuccess }: Prop
         setContatos(contatosLocal)
       }
     } catch (error) {
-      console.error('Erro ao carregar contatos:', error)
+      toast.error('Erro ao carregar contatos')
     }
   }
 
@@ -100,8 +102,7 @@ export default function GerenciadorContatos({ isOpen, onClose, onSuccess }: Prop
       await carregarContatos()
       if (onSuccess) onSuccess()
     } catch (error) {
-      console.error('Erro ao salvar contato:', error)
-      alert('Erro ao salvar contato')
+      toast.error('Erro ao salvar contato')
     } finally {
       setLoading(false)
     }
@@ -133,8 +134,7 @@ export default function GerenciadorContatos({ isOpen, onClose, onSuccess }: Prop
       await carregarContatos()
       if (onSuccess) onSuccess()
     } catch (error) {
-      console.error('Erro ao excluir contato:', error)
-      alert('Erro ao excluir contato')
+      toast.error('Erro ao excluir contato')
     } finally {
       setLoading(false)
     }

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useToast } from '../lib/useToast'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Plus, Edit, Trash2, Save, Tag, TrendingUp, TrendingDown } from 'lucide-react'
 import { Categoria } from '../types/types'
@@ -19,6 +20,7 @@ export default function GerenciadorCategorias({ isOpen, onClose, onSuccess }: Pr
     nome: '',
     tipo: 'saida' as 'entrada' | 'saida'
   })
+  const toast = useToast()
 
   useEffect(() => { if (isOpen) carregarCategorias() }, [isOpen])
 
@@ -86,7 +88,7 @@ export default function GerenciadorCategorias({ isOpen, onClose, onSuccess }: Pr
       carregarCategorias()
       if (onSuccess) onSuccess()
     } catch (error) {
-      alert('Erro ao salvar categoria')
+      toast.error('Erro ao salvar categoria')
     } finally {
       setLoading(false)
     }
@@ -117,7 +119,7 @@ export default function GerenciadorCategorias({ isOpen, onClose, onSuccess }: Pr
       carregarCategorias()
       if (onSuccess) onSuccess()
     } catch (error) {
-      alert('Erro ao deletar categoria')
+      toast.error('Erro ao deletar categoria')
     } finally {
       setLoading(false)
     }

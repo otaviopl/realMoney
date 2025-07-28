@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { useToast } from '../lib/useToast'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Target, 
@@ -37,6 +38,7 @@ export default function GerenciadorMetas({ onClose, onSuccess }: Props) {
     ativa: true,
     alertaEm: 80
   })
+  const toast = useToast()
 
   useEffect(() => {
     carregarDados()
@@ -87,7 +89,7 @@ export default function GerenciadorMetas({ onClose, onSuccess }: Props) {
         setCategorias(categoriasLocal)
       }
     } catch (error) {
-      console.error('Erro ao carregar metas:', error)
+      toast.error('Erro ao carregar metas')
       // Fallback para dados locais
       const metasLocal = JSON.parse(localStorage.getItem('metas') || '[]')
       const categoriasLocal = JSON.parse(localStorage.getItem('categorias') || '[]')
@@ -173,8 +175,7 @@ export default function GerenciadorMetas({ onClose, onSuccess }: Props) {
       if (onSuccess) onSuccess()
       
     } catch (error) {
-      console.error('Erro ao salvar meta:', error)
-      alert('Erro ao salvar meta')
+      toast.error('Erro ao salvar meta')
     } finally {
       setLoading(false)
     }
@@ -216,8 +217,7 @@ export default function GerenciadorMetas({ onClose, onSuccess }: Props) {
       carregarDados()
       
     } catch (error) {
-      console.error('Erro ao excluir meta:', error)
-      alert('Erro ao excluir meta')
+      toast.error('Erro ao excluir meta')
     }
   }
 
@@ -244,8 +244,7 @@ export default function GerenciadorMetas({ onClose, onSuccess }: Props) {
       carregarDados()
       
     } catch (error) {
-      console.error('Erro ao atualizar meta:', error)
-      alert('Erro ao atualizar meta')
+      toast.error('Erro ao atualizar meta')
     }
   }
 

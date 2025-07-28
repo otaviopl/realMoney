@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { useToast } from '../lib/useToast'
 import { motion } from 'framer-motion'
 import { X, Save, Calendar, DollarSign, CreditCard, Home, Leaf, ShoppingCart, Fuel, Zap, Target, Plus } from 'lucide-react'
 import { ResumoMensal } from '../types/types'
@@ -26,6 +27,7 @@ export default function ModalNovoMes({ isOpen, onClose, onSuccess, editingData }
     meta_economia: 0
   })
   const [loading, setLoading] = useState(false)
+  const toast = useToast()
 
   useEffect(() => {
     if (editingData) {
@@ -92,7 +94,7 @@ export default function ModalNovoMes({ isOpen, onClose, onSuccess, editingData }
             .eq('id', editingData.id)
 
           if (error) throw error
-          alert('Dados atualizados na nuvem com sucesso!')
+          toast.success('Dados atualizados na nuvem com sucesso!')
         } else {
           // Inserir novo registro
           const { error } = await supabase
@@ -100,7 +102,7 @@ export default function ModalNovoMes({ isOpen, onClose, onSuccess, editingData }
             .insert([supabaseData])
 
           if (error) throw error
-          alert('Dados salvos na nuvem com sucesso!')
+          toast.success('Dados salvos na nuvem com sucesso!')
         }
       } else {
         // Usuário não logado - salvar localmente
@@ -116,7 +118,7 @@ export default function ModalNovoMes({ isOpen, onClose, onSuccess, editingData }
               updated_at: new Date().toISOString()
             }
             localStorage.setItem('resumo_mensal', JSON.stringify(resumos))
-            alert('Dados atualizados localmente!')
+            toast.success('Dados atualizados localmente!')
           }
         } else {
           // Inserir novo registro
@@ -128,12 +130,12 @@ export default function ModalNovoMes({ isOpen, onClose, onSuccess, editingData }
           }
           resumos.unshift(newResumo)
           localStorage.setItem('resumo_mensal', JSON.stringify(resumos))
-          alert('Dados salvos localmente!')
+          toast.success('Dados salvos localmente!')
         }
       }
       
     } catch (error) {
-      console.error('Erro ao salvar:', error)
+      toast.error('Erro ao salvar dados')
       
       // Fallback para localStorage
       try {
@@ -149,7 +151,7 @@ export default function ModalNovoMes({ isOpen, onClose, onSuccess, editingData }
               updated_at: new Date().toISOString()
             }
             localStorage.setItem('resumo_mensal', JSON.stringify(resumos))
-            alert('Dados atualizados localmente (fallback)!')
+            toast.success('Dados atualizados localmente (fallback)!')
           }
         } else {
           // Inserir novo registro
@@ -161,11 +163,10 @@ export default function ModalNovoMes({ isOpen, onClose, onSuccess, editingData }
           }
           resumos.unshift(newResumo)
           localStorage.setItem('resumo_mensal', JSON.stringify(resumos))
-          alert('Dados salvos localmente (fallback)!')
+          toast.success('Dados salvos localmente (fallback)!')
         }
       } catch (localError) {
-        alert('Erro ao salvar dados')
-        console.error('Erro no fallback:', localError)
+        toast.error('Erro ao salvar dados')
       }
     } finally {
       // Limpar formulário

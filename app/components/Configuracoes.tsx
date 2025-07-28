@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { useToast } from '../lib/useToast'
 import { motion } from 'framer-motion'
 import { 
   Save, 
@@ -22,6 +23,7 @@ export default function Configuracoes() {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const toast = useToast()
 
   useEffect(() => {
     carregarConfiguracoes()
@@ -49,7 +51,7 @@ export default function Configuracoes() {
         })
       }
     } catch (error) {
-      console.error('Erro ao carregar configurações:', error)
+      toast.error('Erro ao carregar configurações')
     } finally {
       setLoading(false)
     }
@@ -80,7 +82,7 @@ export default function Configuracoes() {
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
     } catch (error) {
-      alert('Erro ao salvar configurações: ' + error.message)
+      toast.error('Erro ao salvar configurações')
     } finally {
       setSaving(false)
     }

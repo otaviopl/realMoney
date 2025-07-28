@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useToast } from '../lib/useToast'
 import { RefreshCw, CheckCircle, AlertCircle } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { calcularResumoMensal } from '../lib/calculoAutomatico'
@@ -13,6 +14,7 @@ export default function AtualizadorAutomatico({ onSuccess, className = '' }: Pro
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle')
   const [message, setMessage] = useState('')
+  const toast = useToast()
 
   const atualizarResumosAutomaticamente = async () => {
     setLoading(true)
@@ -80,14 +82,14 @@ export default function AtualizadorAutomatico({ onSuccess, className = '' }: Pro
               .eq('id', resumo.id)
             
             if (error) {
-              console.error(`Erro ao atualizar resumo ${resumo.mes}:`, error)
+              toast.error(`Erro ao atualizar resumo ${resumo.mes}`)
               erros++
             } else {
               resumosAtualizados++
             }
           }
         } catch (error) {
-          console.error(`Erro ao processar resumo ${resumo.mes}:`, error)
+          toast.error(`Erro ao processar resumo ${resumo.mes}`)
           erros++
         }
       }
@@ -106,10 +108,10 @@ export default function AtualizadorAutomatico({ onSuccess, className = '' }: Pro
 
       if (onSuccess) onSuccess()
 
-    } catch (error) {
-      console.error('Erro ao atualizar resumos:', error)
-      setStatus('error')
-      setMessage('Erro ao atualizar resumos')
+      } catch (error) {
+        toast.error('Erro ao atualizar resumos')
+        setStatus('error')
+        setMessage('Erro ao atualizar resumos')
     } finally {
       setLoading(false)
     }

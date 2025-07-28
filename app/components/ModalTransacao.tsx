@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { useToast } from '../lib/useToast'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Save, Tag, Plus, User, Calendar, DollarSign, FileText, TrendingUp, TrendingDown } from 'lucide-react'
 import { Transacao, Categoria, Contato } from '../types/types'
@@ -27,6 +28,7 @@ export default function ModalTransacao({ isOpen, onClose, onSuccess, editingTran
   const [loading, setLoading] = useState(false)
   const [showNovaCategoria, setShowNovaCategoria] = useState(false)
   const [novaCategoria, setNovaCategoria] = useState({ nome: '', tipo: 'saida' as 'entrada' | 'saida' })
+  const toast = useToast()
 
   // Função para normalizar a formatação do mês
   const normalizarMes = (data: string): string => {
@@ -161,7 +163,6 @@ export default function ModalTransacao({ isOpen, onClose, onSuccess, editingTran
           
           // Só criar novo se não conseguiu atualizar nenhum existente
           if (!atualizou) {
-            console.log('Criando novo resumo mensal para:', mesTransacao)
             await supabase
               .from('resumo_mensal')
               .insert([{
@@ -284,12 +285,12 @@ export default function ModalTransacao({ isOpen, onClose, onSuccess, editingTran
           mensagem += `\n\n💰 Valor de R$ ${formData.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} adicionado automaticamente ao salário de ${mesTransacao}!`
         }
       }
-      alert(mensagem)
+      toast.success(mensagem)
       
       if (onSuccess) onSuccess()
       onClose()
     } catch (error) {
-      alert('Erro ao salvar transação')
+      toast.error('Erro ao salvar transação')
     } finally {
       setLoading(false)
     }
@@ -297,7 +298,7 @@ export default function ModalTransacao({ isOpen, onClose, onSuccess, editingTran
 
   const adicionarCategoria = async () => {
     if (!novaCategoria.nome.trim()) {
-      alert('Por favor, insira um nome para a categoria')
+      toast.error('Por favor, insira um nome para a categoria')
       return
     }
     setLoading(true)
@@ -323,7 +324,7 @@ export default function ModalTransacao({ isOpen, onClose, onSuccess, editingTran
       setShowNovaCategoria(false)
       carregarCategorias()
     } catch (error) {
-      alert('Erro ao adicionar categoria')
+      toast.error('Erro ao adicionar categoria')
     } finally {
       setLoading(false)
     }
