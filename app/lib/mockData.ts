@@ -12,6 +12,7 @@ export const mockGastos: GastosMensais[] = [
     gasolina: 300,
     flash: 700,
     metaEconomia: 1000,
+    outros: 0,
     createdAt: '2024-01-01T00:00:00Z',
     updatedAt: '2024-01-01T00:00:00Z'
   },
@@ -26,6 +27,7 @@ export const mockGastos: GastosMensais[] = [
     gasolina: 280,
     flash: 750,
     metaEconomia: 1200,
+    outros: 0,
     createdAt: '2024-02-01T00:00:00Z',
     updatedAt: '2024-02-01T00:00:00Z'
   },
@@ -40,6 +42,7 @@ export const mockGastos: GastosMensais[] = [
     gasolina: 320,
     flash: 800,
     metaEconomia: 1100,
+    outros: 0,
     createdAt: '2024-03-01T00:00:00Z',
     updatedAt: '2024-03-01T00:00:00Z'
   },
@@ -54,6 +57,7 @@ export const mockGastos: GastosMensais[] = [
     gasolina: 250,
     flash: 900,
     metaEconomia: 1500,
+    outros: 0,
     createdAt: '2024-04-01T00:00:00Z',
     updatedAt: '2024-04-01T00:00:00Z'
   }
@@ -61,7 +65,9 @@ export const mockGastos: GastosMensais[] = [
 
 export const mockConfig: Configuracoes = {
   id: 1,
-  metaReserva: 12000,
-  saldoInicial: 2000,
-  userId: 'mock-user-id'
+  user_id: 'mock-user-id',
+  meta_reserva: 12000,
+  saldo_inicial: 2000,
+  created_at: '2024-01-01T00:00:00Z',
+  updated_at: '2024-01-01T00:00:00Z'
 } 

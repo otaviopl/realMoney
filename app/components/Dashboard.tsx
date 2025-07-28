@@ -19,38 +19,183 @@ import {
   ArrowRight,
   Plus,
   HelpCircle,
-  Info
+  Info,
+  Zap,
+  ChevronLeft,
+  ChevronRight,
+  Tag,
+  RefreshCw
 } from 'lucide-react'
-import { supabase } from '../lib/supabaseClient'
+import { supabase, formatarMes } from '../lib/supabaseClient'
 import { mockGastos, mockConfig } from '../lib/mockData'
 import GraficoBarras from './GraficoBarras'
 import GraficoLinha from './GraficoLinha'
 import GraficoProgresso from './GraficoProgresso'
 import Insight from './Insight'
+import InsightAvancado from './InsightAvancado'
 import Historico from './Historico'
 import Configuracoes from './Configuracoes'
 import Formulario from './Formulario'
+import ModalTransacao from './ModalTransacao'
+import ModalNovoMes from './ModalNovoMes' // Adicionado import
+import ListaTransacoes from './ListaTransacoes' // Adicionado import
+import GerenciadorCategorias from './GerenciadorCategorias'
+import GerenciadorContatos from './GerenciadorContatos'
+import { gerarInsightAvancado } from '../lib/insightEngine'
 import type { 
-  GastosMensais, 
   GraficoGastos, 
   GraficoEvolucao, 
   Insight as InsightType,
-  Configuracoes as ConfiguracoesType
+  InsightAvancado as InsightAvancadoType,
+  Configuracoes as ConfiguracoesType,
+  Transacao,
+  Categoria,
+  GastosMensais,
+  ResumoMensal
 } from '../types/types'
+import { 
+  calcularResumoMensal,
+  calcularSaldoAtual,
+  calcularTotalEntradas,
+  calcularTotalSaidas,
+  calcularSobraMensal,
+  deveAtualizarResumoAutomatico
+} from '../lib/calculoAutomatico'
 
 export default function Dashboard() {
-  const [gastos, setGastos] = useState<GastosMensais[]>([])
+  const [gastos, setGastos] = useState<any[]>([])
   const [config, setConfig] = useState<ConfiguracoesType | null>(null)
+  const [transacoes, setTransacoes] = useState<Transacao[]>([])
   const [loading, setLoading] = useState(true)
   const [useLocalData, setUseLocalData] = useState(false)
   const [activeTab, setActiveTab] = useState<'dashboard' | 'historico' | 'configuracoes' | 'formulario'>('dashboard')
-  const [selectedMonth, setSelectedMonth] = useState<GastosMensais | null>(null)
+  const [selectedMonth, setSelectedMonth] = useState<any | null>(null)
   const [showMonthSelector, setShowMonthSelector] = useState(false)
-  const [editingMonth, setEditingMonth] = useState<GastosMensais | null>(null)
+  const [editingMonth, setEditingMonth] = useState<any | null>(null)
+  const [showModalTransacao, setShowModalTransacao] = useState(false)
+  const [showModalNovoMes, setShowModalNovoMes] = useState(false)
+  const [showGerenciadorCategorias, setShowGerenciadorCategorias] = useState(false)
+  const [showGerenciadorContatos, setShowGerenciadorContatos] = useState(false)
+  const [tipoTransacaoRapida, setTipoTransacaoRapida] = useState<'entrada' | 'saida'>('saida')
 
   useEffect(() => {
     carregarDados()
   }, [])
+
+  // Função para associar transações aos meses corretos
+  // Função para atualizar resumos automaticamente baseado nas transações
+  const atualizarResumosAutomaticamente = async (
+    resumos: any[],
+    transacoes: Transacao[],
+    categorias: Categoria[],
+    userId: string
+  ) => {
+    for (const resumo of resumos) {
+      const resumoCalculado = calcularResumoMensal(transacoes, categorias, resumo.mes)
+      
+      // Verificar se há diferenças significativas
+      const camposParaAtualizar = [
+        'salario_liquido',
+        'cartao_credito',
+        'contas_fixas',
+        'hashish',
+        'mercado',
+        'gasolina',
+        'flash',
+        'outros'
+      ]
+
+      let precisaAtualizar = false
+      const dadosAtualizados: any = {}
+
+      camposParaAtualizar.forEach(campo => {
+        const valorAtual = resumo[campo.replace('_', '')] || 0 // Converter snake_case para camelCase
+        const valorCalculado = resumoCalculado[campo as keyof typeof resumoCalculado]
+        
+        // Só atualizar se o valor calculado existe e é diferente do atual
+        if (valorCalculado !== undefined && Math.abs(Number(valorAtual) - Number(valorCalculado)) > 0.01) {
+          dadosAtualizados[campo] = valorCalculado
+          precisaAtualizar = true
+        }
+      })
+
+      if (precisaAtualizar) {
+        try {
+          await supabase
+            .from('resumo_mensal')
+            .update(dadosAtualizados)
+            .eq('id', resumo.id)
+          
+          console.log(`Resumo do mês ${resumo.mes} atualizado automaticamente`)
+        } catch (error) {
+          console.error(`Erro ao atualizar resumo do mês ${resumo.mes}:`, error)
+        }
+      }
+    }
+  }
+
+  const associarTransacoesAosMeses = (resumos: any[], transacoes: Transacao[]) => {
+    return resumos.map(resumo => {
+      // Filtrar transações do mês específico usando toLowerCase para comparação
+      const transacoesDoMes = transacoes.filter(transacao => {
+        const dataTransacao = new Date(transacao.data)
+        const mesTransacao = dataTransacao.toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
+        return mesTransacao.toLowerCase() === resumo.mes.toLowerCase()
+      })
+      
+      return {
+        ...resumo,
+        transacoes: transacoesDoMes
+      }
+    })
+  }
+
+  // Função para limpar resumos duplicados
+  const limparResumosDuplicados = async (userId: string) => {
+    try {
+      // Buscar todos os resumos do usuário
+      const { data: resumos } = await supabase
+        .from('resumo_mensal')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+
+      if (!resumos || resumos.length <= 1) return
+
+      // Agrupar por mês/ano
+      const gruposPorMes: { [key: string]: any[] } = {}
+      
+      resumos.forEach(resumo => {
+        const mesAno = resumo.mes.split(' ')
+        const chave = `${mesAno[0]}_${mesAno[1]}`
+        
+        if (!gruposPorMes[chave]) {
+          gruposPorMes[chave] = []
+        }
+        gruposPorMes[chave].push(resumo)
+      })
+
+      // Para cada grupo com mais de um resumo, manter apenas o mais recente
+      for (const [chave, grupo] of Object.entries(gruposPorMes)) {
+        if (grupo.length > 1) {
+          // Ordenar por created_at e manter apenas o mais recente
+          grupo.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          
+          // Deletar os resumos duplicados (exceto o primeiro/mais recente)
+          for (let i = 1; i < grupo.length; i++) {
+            await supabase
+              .from('resumo_mensal')
+              .delete()
+              .eq('id', grupo[i].id)
+            
+            console.log(`Resumo duplicado deletado: ${grupo[i].mes} (ID: ${grupo[i].id})`)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao limpar resumos duplicados:', error)
+    }
+  }
 
   const carregarDados = async () => {
     setLoading(true)
@@ -59,31 +204,33 @@ export default function Dashboard() {
       const { data: { user } } = await supabase.auth.getUser()
       
       if (user) {
+        // Limpar resumos duplicados antes de carregar
+        await limparResumosDuplicados(user.id)
         // Usuário logado - carregar dados do Supabase
-        const { data: gastosData } = await supabase
-          .from('gastos_mensais')
+        const { data: resumosData } = await supabase
+          .from('resumo_mensal')
           .select('*')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
 
         // Mapear snake_case para camelCase
-        const gastosMapeados = (gastosData || []).map(item => ({
+        const resumosMapeados = (resumosData || []).map(item => ({
           id: item.id,
           mes: item.mes,
-          salarioLiquido: item.salario_liquido,
-          cartaoCredito: item.cartao_credito,
-          contasFixas: item.contas_fixas,
-          hashish: item.hashish,
-          mercado: item.mercado,
-          gasolina: item.gasolina,
-          flash: item.flash,
-          metaEconomia: item.meta_economia,
+          salarioLiquido: item.salario_liquido || 0,
+          cartaoCredito: item.cartao_credito || 0,
+          contasFixas: item.contas_fixas || 0,
+          hashish: item.hashish || 0,
+          mercado: item.mercado || 0,
+          gasolina: item.gasolina || 0,
+          flash: item.flash || 0,
+          metaEconomia: item.meta_economia || 0,
+          outros: item.outros || 0,
+          categoria: 'Geral',
+          transacoes: [], // Transações serão carregadas separadamente
           createdAt: item.created_at,
           updatedAt: item.updated_at,
         }))
-
-        setGastos(gastosMapeados)
-        setSelectedMonth(gastosMapeados[0] || null)
 
         // Carregar configurações do usuário
         const { data: configData } = await supabase
@@ -95,12 +242,42 @@ export default function Dashboard() {
         // Mapear configurações se existirem
         const configMapeada = configData ? {
           id: configData.id,
-          metaReserva: configData.meta_reserva,
-          saldoInicial: configData.saldo_inicial,
-          userId: configData.user_id,
+          meta_reserva: configData.meta_reserva,
+          saldo_inicial: configData.saldo_inicial,
+          user_id: configData.user_id,
         } : null
 
         setConfig(configMapeada)
+
+        // Carregar transações do usuário
+        const { data: transacoesData } = await supabase
+          .from('transacoes')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('data', { ascending: false })
+
+        const transacoesMapeadas = (transacoesData || []).map(t => ({
+          id: t.id,
+          user_id: t.user_id,
+          data: t.data,
+          valor: t.valor,
+          tipo: t.tipo,
+          categoria_id: t.categoria_id,
+          contato_id: t.contato_id,
+          descricao: t.descricao,
+          created_at: t.created_at,
+        }))
+
+        setTransacoes(transacoesMapeadas)
+        
+        // Comentado para evitar zerar dados - a atualização agora é feita apenas ao adicionar transações
+        // await atualizarResumosAutomaticamente(resumosMapeados, transacoesMapeadas, [], user.id)
+
+        // Associar transações aos meses corretos
+        const resumosComTransacoes = associarTransacoesAosMeses(resumosMapeados, transacoesMapeadas)
+        setGastos(resumosComTransacoes)
+        setSelectedMonth(resumosComTransacoes[0] || null)
+        
         setUseLocalData(false)
         
       } else {
@@ -111,9 +288,12 @@ export default function Dashboard() {
         // Carregar dados do localStorage
         try {
           const localGastos = JSON.parse(localStorage.getItem('gastos') || '[]')
+          const localTransacoes = JSON.parse(localStorage.getItem('transacoes') || '[]')
+          
           if (localGastos.length > 0) {
-            setGastos(localGastos)
-            setSelectedMonth(localGastos[0])
+            const gastosComTransacoes = associarTransacoesAosMeses(localGastos, localTransacoes)
+            setGastos(gastosComTransacoes)
+            setSelectedMonth(gastosComTransacoes[0])
           } else {
             setGastos(mockGastos)
             setSelectedMonth(mockGastos[0])
@@ -125,6 +305,21 @@ export default function Dashboard() {
           } else {
             setConfig(mockConfig)
           }
+
+          const transacoesMapeadas = localTransacoes.map((t: any) => ({
+            id: t.id,
+            userID: t.userID || 'local',
+            tipo: t.tipo,
+            valor: t.valor,
+            data: t.data,
+            categoriaID: t.categoriaID || t.categoriaId,
+            contactID: t.contactID,
+            observacoes: t.observacoes,
+            mesAssociado: t.mesAssociado,
+            createdAt: t.createdAt,
+            updatedAt: t.updatedAt,
+          }))
+          setTransacoes(transacoesMapeadas)
         } catch (localError) {
           console.log('Erro ao carregar dados locais, usando mockados')
           setGastos(mockGastos)
@@ -139,9 +334,12 @@ export default function Dashboard() {
       // Fallback para dados locais
       try {
         const localGastos = JSON.parse(localStorage.getItem('gastos') || '[]')
+        const localTransacoes = JSON.parse(localStorage.getItem('transacoes') || '[]')
+        
         if (localGastos.length > 0) {
-          setGastos(localGastos)
-          setSelectedMonth(localGastos[0])
+          const gastosComTransacoes = associarTransacoesAosMeses(localGastos, localTransacoes)
+          setGastos(gastosComTransacoes)
+          setSelectedMonth(gastosComTransacoes[0])
         } else {
           setGastos(mockGastos)
           setSelectedMonth(mockGastos[0])
@@ -153,6 +351,15 @@ export default function Dashboard() {
         } else {
           setConfig(mockConfig)
         }
+
+        const transacoesMapeadas = localTransacoes.map((t: any) => ({
+          id: t.id,
+          userID: t.userID || 'local',
+          categoriaID: t.categoriaID || t.categoriaId,
+          contatoID: t.contatoID,
+          createdAt: t.createdAt,
+        }))
+        setTransacoes(transacoesMapeadas)
       } catch (localError) {
         console.log('Erro ao carregar dados locais, usando mockados')
         setGastos(mockGastos)
@@ -164,9 +371,9 @@ export default function Dashboard() {
     }
   }
 
-  const calcularSobra = (item: GastosMensais) => {
+  const calcularSobra = (item: any) => {
     const custoHashish = item.hashish * 95; // Calculate total cost of hashish
-    const totalGastos = item.cartaoCredito + item.contasFixas + custoHashish + item.mercado + item.gasolina;
+    const totalGastos = item.cartaoCredito + item.contasFixas + custoHashish + item.mercado + item.gasolina + (item.outros || 0);
     return item.salarioLiquido + item.flash - totalGastos;
   }
 
@@ -174,7 +381,7 @@ export default function Dashboard() {
     if (!selectedMonth) return []
 
     const custoHashish = selectedMonth.hashish * 95; // Calculate total cost of hashish
-    const totalGastos = selectedMonth.cartaoCredito + selectedMonth.contasFixas + custoHashish + selectedMonth.mercado + selectedMonth.gasolina;
+    const totalGastos = selectedMonth.cartaoCredito + selectedMonth.contasFixas + custoHashish + selectedMonth.mercado + selectedMonth.gasolina + (selectedMonth.outros || 0);
 
     return [
       { categoria: 'Cartão de Crédito', valor: selectedMonth.cartaoCredito, porcentagem: (selectedMonth.cartaoCredito / totalGastos) * 100 },
@@ -182,6 +389,7 @@ export default function Dashboard() {
       { categoria: 'Hashish', valor: custoHashish, porcentagem: (custoHashish / totalGastos) * 100 },
       { categoria: 'Mercado', valor: selectedMonth.mercado, porcentagem: (selectedMonth.mercado / totalGastos) * 100 },
       { categoria: 'Gasolina', valor: selectedMonth.gasolina, porcentagem: (selectedMonth.gasolina / totalGastos) * 100 },
+      { categoria: 'Outros', valor: selectedMonth.outros || 0, porcentagem: ((selectedMonth.outros || 0) / totalGastos) * 100 },
     ]
   }
 
@@ -199,7 +407,7 @@ export default function Dashboard() {
   const calcularInsight = (): InsightType => {
     const dadosEvolucao = calcularDadosGraficoEvolucao()
     const valorAtual = dadosEvolucao.length > 0 ? dadosEvolucao[dadosEvolucao.length - 1].acumulado : 0
-    const meta = config?.metaReserva || 12000
+    const meta = config?.meta_reserva || 12000
     
     if (valorAtual >= meta) {
       return {
@@ -225,22 +433,36 @@ export default function Dashboard() {
   }
 
   const handleEditar = (item: GastosMensais) => {
-    if (useLocalData) {
-      alert('Funcionalidade de edição disponível apenas com Supabase configurado')
-    } else {
-      setSelectedMonth(item)
-      setEditingMonth(item) // Define o mês para edição
-      setActiveTab('formulario')
+    // Converter de GastosMensais (camelCase) para ResumoMensal (snake_case)
+    const resumoMensal: ResumoMensal = {
+      id: item.id,
+      user_id: '', // Será preenchido pelo modal
+      mes: item.mes,
+      salario_liquido: item.salarioLiquido,
+      cartao_credito: item.cartaoCredito,
+      contas_fixas: item.contasFixas,
+      hashish: item.hashish,
+      mercado: item.mercado,
+      gasolina: item.gasolina,
+      flash: item.flash,
+      outros: item.outros || 0,
+      meta_economia: item.metaEconomia,
+      created_at: item.createdAt,
+      updated_at: item.updatedAt
     }
+    setEditingMonth(resumoMensal) // Define o mês para edição
+    setShowModalNovoMes(true) // Abre o modal de edição
   }
 
   const handleClonar = (item: GastosMensais) => {
-    if (useLocalData) {
-      alert('Funcionalidade de clonagem disponível apenas com Supabase configurado')
-    } else {
-      // Implementar clonagem
-      console.log('Clonar:', item)
+    // Criar uma cópia do item para clonagem
+    const itemClonado = {
+      ...item,
+      id: undefined, // Remove o ID para criar um novo registro
+      mes: `${item.mes} (Cópia)`, // Adiciona sufixo para identificar
     }
+    setEditingMonth(itemClonado) // Define o item clonado para edição
+    setShowModalNovoMes(true) // Abre o modal de novo mês
   }
 
   const getMoodAvatar = () => {
@@ -305,15 +527,7 @@ export default function Dashboard() {
               )}
             </div>
 
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => setActiveTab('formulario')}
-                className="inline-flex items-center px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Novo Mês
-              </button>
-              
+            <div className="flex items-center space-x-3">
               <div className="relative">
                 <button className="flex items-center space-x-2 p-2 hover:bg-gray-100 rounded-lg transition-colors">
                   <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
@@ -400,6 +614,7 @@ export default function Dashboard() {
                 animate="visible"
                 className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
               >
+
                 {/* Saldo Atual */}
                 <motion.div
                   variants={cardVariants}
@@ -430,7 +645,7 @@ export default function Dashboard() {
                   <p className="text-xs text-gray-500 mt-2">
                     {selectedMonth && (
                       <>
-                        R$ {selectedMonth.salarioLiquido.toLocaleString('pt-BR')} + R$ {selectedMonth.flash.toLocaleString('pt-BR')} - R$ {(selectedMonth.cartaoCredito + selectedMonth.contasFixas + selectedMonth.hashish + selectedMonth.mercado + selectedMonth.gasolina).toLocaleString('pt-BR')}
+                        R$ {selectedMonth.salarioLiquido.toLocaleString('pt-BR')} + R$ {selectedMonth.flash.toLocaleString('pt-BR')} - R$ {(selectedMonth.cartaoCredito + selectedMonth.contasFixas + selectedMonth.hashish * 95 + selectedMonth.mercado + selectedMonth.gasolina).toLocaleString('pt-BR')}
                       </>
                     )}
                   </p>
@@ -561,7 +776,7 @@ export default function Dashboard() {
                 </motion.div>
               </motion.div>
 
-              {/* Bloco 3 – Insights */}
+              {/* Bloco 3 – Ações Rápidas */}
               <motion.div
                 variants={cardVariants}
                 initial="hidden"
@@ -569,7 +784,70 @@ export default function Dashboard() {
                 className="bg-white rounded-xl shadow-sm border border-gray-200 p-6"
               >
                 <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900">Insights</h3>
+                  <h3 className="text-lg font-semibold text-gray-900">Ações Rápidas</h3>
+                  <Activity className="h-5 w-5 text-gray-400" />
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {/* Botão Entrada */}
+                  <button
+                    onClick={() => {
+                      setTipoTransacaoRapida('entrada')
+                      setShowModalTransacao(true)
+                    }}
+                    className="flex items-center justify-center space-x-3 p-4 bg-green-50 border-2 border-green-200 rounded-lg hover:bg-green-100 transition-colors group"
+                  >
+                    <div className="p-2 bg-green-500 rounded-lg group-hover:bg-green-600 transition-colors">
+                      <TrendingUp className="h-5 w-5 text-white" />
+                    </div>
+                    <div className="text-left">
+                      <p className="font-medium text-green-900">Nova Entrada</p>
+                      <p className="text-sm text-green-600">Registrar receita</p>
+                    </div>
+                  </button>
+
+                  {/* Botão Saída */}
+                  <button
+                    onClick={() => {
+                      setTipoTransacaoRapida('saida')
+                      setShowModalTransacao(true)
+                    }}
+                    className="flex items-center justify-center space-x-3 p-4 bg-red-50 border-2 border-red-200 rounded-lg hover:bg-red-100 transition-colors group"
+                  >
+                    <div className="p-2 bg-red-500 rounded-lg group-hover:bg-red-600 transition-colors">
+                      <TrendingDown className="h-5 w-5 text-white" />
+                    </div>
+                    <div className="text-left">
+                      <p className="font-medium text-red-900">Nova Saída</p>
+                      <p className="text-sm text-red-600">Registrar despesa</p>
+                    </div>
+                  </button>
+
+                  {/* Botão Novo Mês */}
+                  <button
+                    onClick={() => setShowModalNovoMes(true)}
+                    className="flex items-center justify-center space-x-3 p-4 bg-gray-50 border-2 border-gray-200 rounded-lg hover:bg-gray-100 transition-colors group"
+                  >
+                    <div className="p-2 bg-gray-500 rounded-lg group-hover:bg-gray-600 transition-colors">
+                      <Plus className="h-5 w-5 text-white" />
+                    </div>
+                    <div className="text-left">
+                      <p className="font-medium text-gray-900">Novo Mês</p>
+                      <p className="text-sm text-gray-600">Adicionar mês</p>
+                    </div>
+                  </button>
+                </div>
+              </motion.div>
+
+              {/* Bloco 4 – Insights Avançados */}
+              <motion.div
+                variants={cardVariants}
+                initial="hidden"
+                animate="visible"
+                className="bg-white rounded-xl shadow-sm border border-gray-200 p-6"
+              >
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900">Insights Inteligentes</h3>
                   {(() => {
                     const mood = getMoodAvatar()
                     return (
@@ -579,10 +857,14 @@ export default function Dashboard() {
                     )
                   })()}
                 </div>
-                <Insight insight={calcularInsight()} />
+                <InsightAvancado 
+                  insight={gerarInsightAvancado(gastos, config, transacoes)} 
+                  gastosMensais={gastos}
+                  transacoes={transacoes}
+                />
               </motion.div>
 
-              {/* Bloco 4 – Detalhamento */}
+              {/* Bloco 5 – Detalhamento */}
               {selectedMonth && (
                 <motion.div
                   variants={cardVariants}
@@ -592,13 +874,22 @@ export default function Dashboard() {
                 >
                   <div className="flex items-center justify-between mb-6">
                     <h3 className="text-lg font-semibold text-gray-900">Detalhamento do Mês</h3>
-                    <button
-                      onClick={() => handleEditar(selectedMonth)}
-                      className="inline-flex items-center px-3 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
-                    >
-                      <Edit3 className="h-4 w-4 mr-2" />
-                      Editar
-                    </button>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => handleEditar(selectedMonth)}
+                        className="inline-flex items-center px-3 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
+                      >
+                        <Edit3 className="h-4 w-4 mr-2" />
+                        Editar
+                      </button>
+                      <button
+                        onClick={() => handleClonar(selectedMonth)}
+                        className="inline-flex items-center px-3 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Clonar
+                      </button>
+                    </div>
                   </div>
                   
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -645,6 +936,12 @@ export default function Dashboard() {
                       </p>
                     </div>
                     <div className="p-4 bg-gray-50 rounded-lg">
+                      <p className="text-sm text-gray-500 mb-1">Outros</p>
+                      <p className="text-lg font-semibold text-gray-900">
+                        R$ {(selectedMonth.outros || 0).toLocaleString('pt-BR')}
+                      </p>
+                    </div>
+                    <div className="p-4 bg-gray-50 rounded-lg">
                       <p className="text-sm text-gray-500 mb-1">Sobra</p>
                       <p className="text-lg font-semibold text-green-600">
                         R$ {calcularSobra(selectedMonth).toLocaleString('pt-BR')}
@@ -654,7 +951,28 @@ export default function Dashboard() {
                 </motion.div>
               )}
 
-              {/* Seção de Explicação dos Cálculos */}
+              {/* Bloco 6 – Lista de Transações */}
+              {selectedMonth && selectedMonth.transacoes && selectedMonth.transacoes.length > 0 && (
+                <motion.div
+                  variants={cardVariants}
+                  initial="hidden"
+                  animate="visible"
+                  className="bg-white rounded-xl shadow-sm border border-gray-200 p-6"
+                >
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-lg font-semibold text-gray-900">Transações do Mês</h3>
+                    <span className="text-sm text-gray-500">
+                      {selectedMonth.transacoes.length} transação{selectedMonth.transacoes.length !== 1 ? 'ões' : ''}
+                    </span>
+                  </div>
+                  <ListaTransacoes 
+                    transacoes={selectedMonth.transacoes} 
+                    categorias={[]} // TODO: Carregar categorias
+                  />
+                </motion.div>
+              )}
+
+              {/* Bloco 7 – Explicação dos Cálculos */}
               <motion.div
                 variants={cardVariants}
                 initial="hidden"
@@ -680,7 +998,7 @@ export default function Dashboard() {
                           <strong>Fórmula:</strong> Salário Líquido + Flash - Total de Gastos
                         </p>
                         <p className="text-xs text-gray-500 mt-1">
-                          Total de Gastos = Cartão + Contas Fixas + Hashish + Mercado + Gasolina
+                          Total de Gastos = Cartão + Contas Fixas + (Hashish × R$ 95) + Mercado + Gasolina + Outros
                         </p>
                       </div>
                     </div>
@@ -769,24 +1087,6 @@ export default function Dashboard() {
               <Configuracoes />
             </motion.div>
           )}
-
-                               {activeTab === 'formulario' && (
-            <motion.div
-              key="formulario"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-                              <Formulario 
-                  onBack={() => {
-                    setActiveTab('dashboard')
-                    setEditingMonth(null) // Limpa o mês em edição
-                    carregarDados() // Recarrega os dados após edição
-                  }} 
-                  editingData={editingMonth}
-                />
-            </motion.div>
-          )}
         </AnimatePresence>
       </main>
 
@@ -832,12 +1132,23 @@ export default function Dashboard() {
               <span className="text-xs">Config</span>
             </button>
             <button
-              onClick={() => setActiveTab('formulario')}
-              className={`flex flex-col items-center py-2 px-3 rounded-lg transition-colors ${
-                activeTab === 'formulario'
-                  ? 'text-gray-900 bg-gray-100'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
+              onClick={() => setShowGerenciadorCategorias(true)}
+              className="flex flex-col items-center py-2 px-3 rounded-lg transition-colors text-gray-500 hover:text-gray-700"
+            >
+              <Tag className="h-5 w-5 mb-1" />
+              <span className="text-xs">Categorias</span>
+            </button>
+            <button
+              onClick={() => setShowGerenciadorContatos(true)}
+              className="flex flex-col items-center py-2 px-3 rounded-lg transition-colors text-gray-500 hover:text-gray-700"
+            >
+              <User className="h-5 w-5 mb-1" />
+              <span className="text-xs">Contatos</span>
+            </button>
+
+            <button
+              onClick={() => setShowModalNovoMes(true)}
+              className="flex flex-col items-center py-2 px-3 rounded-lg transition-colors text-gray-500 hover:text-gray-700"
             >
               <Plus className="h-5 w-5 mb-1" />
               <span className="text-xs">Novo</span>
@@ -845,6 +1156,49 @@ export default function Dashboard() {
           </div>
         </div>
       </motion.nav>
+
+      {/* Modal de Transação */}
+      <ModalTransacao
+        isOpen={showModalTransacao}
+        onClose={() => setShowModalTransacao(false)}
+        onSuccess={() => {
+          carregarDados() // Recarregar dados após nova transação
+        }}
+        mesSelecionado={selectedMonth?.mes}
+      />
+
+      {/* Modal de Novo Mês */}
+      <ModalNovoMes
+        isOpen={showModalNovoMes}
+        onClose={() => {
+          setShowModalNovoMes(false)
+          setEditingMonth(null) // Limpa o mês em edição ao fechar
+        }}
+        onSuccess={() => {
+          carregarDados() // Recarregar dados após novo mês
+          setEditingMonth(null) // Limpa o mês em edição
+        }}
+        editingData={editingMonth}
+      />
+
+      {/* Modal de Gerenciador de Categorias */}
+      <GerenciadorCategorias
+        isOpen={showGerenciadorCategorias}
+        onClose={() => setShowGerenciadorCategorias(false)}
+        onSuccess={() => {
+          carregarDados() // Recarregar dados após alterações nas categorias
+        }}
+      />
+
+      {/* Modal de Gerenciador de Contatos */}
+      <GerenciadorContatos
+        isOpen={showGerenciadorContatos}
+        onClose={() => setShowGerenciadorContatos(false)}
+        onSuccess={() => {
+          carregarDados() // Recarregar dados após alterações nos contatos
+        }}
+      />
+
     </div>
   )
 }

@@ -87,7 +87,7 @@ export default function Formulario({ onBack, editingData }: Props) {
         if (editingData && editingData.id) {
           // Atualizar registro existente
           const { error } = await supabase
-            .from('gastos_mensais')
+            .from('resumo_mensal')
             .update(supabaseData)
             .eq('id', editingData.id)
 
@@ -96,7 +96,7 @@ export default function Formulario({ onBack, editingData }: Props) {
         } else {
           // Inserir novo registro
           const { error } = await supabase
-            .from('gastos_mensais')
+            .from('resumo_mensal')
             .insert([supabaseData])
 
           if (error) throw error

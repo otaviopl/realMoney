@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { mockGastos, mockConfig } from '../lib/mockData'
 import Auth from '../components/Auth'
-import Formulario from '../components/Formulario'
 import Dashboard from '../components/Dashboard'
 
 export default function Home() {
@@ -152,10 +151,7 @@ export default function Home() {
 
       {/* Main content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="space-y-8">
-          <Formulario />
-          <Dashboard />
-        </div>
+        <Dashboard />
       </main>
     </div>
   )
