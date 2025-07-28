@@ -17,8 +17,8 @@ import { AnimatePresence } from 'framer-motion'
 
 export default function Configuracoes() {
   const [config, setConfig] = useState<Partial<Configuracoes>>({
-    metaReserva: 12000,
-    saldoInicial: 0,
+    meta_reserva: 12000,
+    saldo_inicial: 0,
   })
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -42,12 +42,12 @@ export default function Configuracoes() {
         .single()
 
       if (data) {
-        // Mapear snake_case para camelCase
+        // Mapear snake_case para snake_case
         setConfig({
           id: data.id,
-          metaReserva: data.meta_reserva,
-          saldoInicial: data.saldo_inicial,
-          userId: data.user_id,
+          meta_reserva: data.meta_reserva,
+          saldo_inicial: data.saldo_inicial,
+          user_id: data.user_id,
         })
       }
     } catch (error) {
@@ -66,11 +66,11 @@ export default function Configuracoes() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Usuário não autenticado')
 
-      // Mapear camelCase para snake_case
+      // Mapear snake_case para snake_case
       const configData = {
         user_id: user.id,
-        meta_reserva: config.metaReserva,
-        saldo_inicial: config.saldoInicial,
+        meta_reserva: config.meta_reserva,
+        saldo_inicial: config.saldo_inicial,
       }
 
       const { error } = await supabase
@@ -160,8 +160,8 @@ export default function Configuracoes() {
                 <input
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent transition-colors"
                   type="number"
-                  value={config.metaReserva}
-                  onChange={(e) => handleChange('metaReserva', e.target.value)}
+                                  value={config.meta_reserva}
+                onChange={(e) => handleChange('meta_reserva', e.target.value)}
                   placeholder="12000"
                   required
                 />
@@ -197,8 +197,8 @@ export default function Configuracoes() {
                 <input
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent transition-colors"
                   type="number"
-                  value={config.saldoInicial}
-                  onChange={(e) => handleChange('saldoInicial', e.target.value)}
+                                  value={config.saldo_inicial}
+                onChange={(e) => handleChange('saldo_inicial', e.target.value)}
                   placeholder="0"
                   required
                 />

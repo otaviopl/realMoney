@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useToast } from '../../lib/useToast'
 import { RefreshCw, CheckCircle, AlertCircle } from 'lucide-react'
-import { supabase } from '../../../lib/supabaseClient'
+import { supabase } from '../../lib/supabaseClient'
 import { calcularResumoMensal } from '../../lib/calculoAutomatico'
 import { Transacao, ResumoMensal, Categoria } from '../../types/types'
 

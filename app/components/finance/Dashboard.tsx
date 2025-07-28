@@ -988,10 +988,7 @@ export default function Dashboard() {
                       {selectedMonth.transacoes.length} transação{selectedMonth.transacoes.length !== 1 ? 'ões' : ''}
                     </span>
                   </div>
-                  <ListaTransacoes 
-                    transacoes={selectedMonth.transacoes} 
-                    categorias={[]} // TODO: Carregar categorias
-                  />
+                  <ListaTransacoes />
                 </motion.div>
               )}
 

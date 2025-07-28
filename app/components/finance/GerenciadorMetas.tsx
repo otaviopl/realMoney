@@ -464,7 +464,7 @@ export default function GerenciadorMetas({ onClose, onSuccess }: Props) {
                       <select
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
                         value={formData.categoriaId || ''}
-                        onChange={(e) => setFormData(prev => ({ ...prev, categoriaId: e.target.value }))}
+                        onChange={(e) => setFormData(prev => ({ ...prev, categoriaId: e.target.value ? Number(e.target.value) : undefined }))}
                         required
                       >
                         <option value="">Selecione uma categoria</option>

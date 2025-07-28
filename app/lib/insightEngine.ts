@@ -12,7 +12,7 @@ export function gerarInsightAvancado(
 ): InsightAvancado {
   const mesAtual = gastosMensais[0]
   const mesesAnteriores = gastosMensais.slice(1, 6) // Últimos 5 meses
-  const metaReserva = config?.metaReserva || 12000
+  const metaReserva = config?.meta_reserva || 12000
 
   // Calcular sobra do mês atual
   const calcularSobra = (mes: GastosMensais) => {
@@ -118,16 +118,13 @@ export function gerarInsightAvancado(
   const mesesParaReserva = mediaSobra > 0 ? Math.ceil((metaReserva - valorAtual) / mediaSobra) : 0
 
   return {
-    mesesParaMeta: mesesParaReserva,
-    valorAtual,
-    meta: metaReserva,
-    mensagem: gerarMensagemPersonalizada(valorAtual, metaReserva, mediaSobra),
     alertas,
     recomendacoes,
     previsoes: {
       saldoProximoMes,
       metaRealizavel,
-      mesesParaReserva
+      mesesParaReserva,
+      tempoParaMeta: mesesParaReserva
     }
   }
 }
