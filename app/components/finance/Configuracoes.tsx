@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { useToast } from '../lib/useToast'
+import { useToast } from '../../lib/useToast'
 import { motion } from 'framer-motion'
 import { 
   Save, 
@@ -11,8 +11,8 @@ import {
   AlertCircle,
   HelpCircle
 } from 'lucide-react'
-import { supabase } from '../lib/supabaseClient'
-import type { Configuracoes } from '../types/types'
+import { supabase } from '../../lib/supabaseClient'
+import type { Configuracoes } from '../../types/types'
 import { AnimatePresence } from 'framer-motion'
 
 export default function Configuracoes() {

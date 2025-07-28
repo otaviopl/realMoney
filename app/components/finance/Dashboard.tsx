@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { useToast } from '../lib/useToast'
+import { useToast } from '../../lib/useToast'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   User, 
@@ -29,8 +29,8 @@ import {
   Sun,
   Moon
 } from 'lucide-react'
-import { supabase, formatarMes } from '../lib/supabaseClient'
-import { mockGastos, mockConfig } from '../lib/mockData'
+import { supabase, formatarMes } from '../../../lib/supabaseClient'
+import { mockGastos, mockConfig } from '../../lib/mockData'
 import GraficoBarras from './GraficoBarras'
 import GraficoLinha from './GraficoLinha'
 import GraficoProgresso from './GraficoProgresso'
@@ -44,8 +44,8 @@ import ModalNovoMes from './ModalNovoMes' // Adicionado import
 import ListaTransacoes from './ListaTransacoes' // Adicionado import
 import GerenciadorCategorias from './GerenciadorCategorias'
 import GerenciadorContatos from './GerenciadorContatos'
-import { gerarInsightAvancado } from '../lib/insightEngine'
-import useThemeSwitcher from '../hooks/useThemeSwitcher'
+import { gerarInsightAvancado } from '../../lib/insightEngine'
+import useThemeSwitcher from '../../hooks/useThemeSwitcher'
 import type { 
   GraficoGastos, 
   GraficoEvolucao, 
@@ -56,7 +56,7 @@ import type {
   Categoria,
   GastosMensais,
   ResumoMensal
-} from '../types/types'
+} from '../../types/types'
 import { 
   calcularResumoMensal,
   calcularSaldoAtual,
@@ -64,7 +64,7 @@ import {
   calcularTotalSaidas,
   calcularSobraMensal,
   deveAtualizarResumoAutomatico
-} from '../lib/calculoAutomatico'
+} from '../../lib/calculoAutomatico'
 
 export default function Dashboard() {
   const { theme, toggleTheme } = useThemeSwitcher()

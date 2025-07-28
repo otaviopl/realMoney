@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { useToast } from '../lib/useToast'
+import { useToast } from '../../lib/useToast'
 import { motion } from 'framer-motion'
 import { 
   Save, 
@@ -15,8 +15,8 @@ import {
   ArrowLeft,
   Info
 } from 'lucide-react'
-import { supabase } from '../lib/supabaseClient'
-import { GastosMensais } from '../types/types'
+import { supabase } from '../../lib/supabaseClient'
+import { GastosMensais } from '../../types/types'
 
 interface Props {
   onBack?: () => void

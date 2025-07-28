@@ -8,7 +8,7 @@ import {
   MessageSquare,
   DollarSign
 } from 'lucide-react'
-import { Transacao } from '../types/types'
+import { Transacao } from '../../types/types'
 
 interface Props {
   transacoes: Transacao[]

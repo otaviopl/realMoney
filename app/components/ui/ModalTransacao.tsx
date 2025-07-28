@@ -1,10 +1,10 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { useToast } from '../lib/useToast'
+import { useToast } from '../../lib/useToast'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Save, Tag, Plus, User, Calendar, DollarSign, FileText, TrendingUp, TrendingDown } from 'lucide-react'
-import { Transacao, Categoria, Contato } from '../types/types'
-import { supabase } from '../lib/supabaseClient'
+import { Transacao, Categoria, Contato } from '../../types/types'
+import { supabase } from '../../lib/supabaseClient'
 
 interface Props {
   isOpen: boolean

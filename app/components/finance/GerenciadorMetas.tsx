@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { useToast } from '../lib/useToast'
+import { useToast } from '../../lib/useToast'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Target, 
@@ -16,8 +16,8 @@ import {
   TrendingUp,
   CheckCircle
 } from 'lucide-react'
-import { supabase } from '../lib/supabaseClient'
-import { Meta, Categoria } from '../types/types'
+import { supabase } from '../../lib/supabaseClient'
+import { Meta, Categoria } from '../../types/types'
 
 interface Props {
   onClose?: () => void

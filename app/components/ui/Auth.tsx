@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
-import { useToast } from '../lib/useToast'
-import { supabase } from '../lib/supabaseClient'
+import { useToast } from '../../lib/useToast'
+import { supabase } from '../../lib/supabaseClient'
 
 export default function Auth() {
   const [loading, setLoading] = useState(false)

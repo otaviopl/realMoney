@@ -3,8 +3,8 @@ import { useState, useEffect } from 'react'
 import { useToast } from '../lib/useToast'
 import { supabase } from '../lib/supabaseClient'
 import { mockGastos, mockConfig } from '../lib/mockData'
-import Auth from '../components/Auth'
-import Dashboard from '../components/Dashboard'
+import Auth from '../components/ui/Auth'
+import Dashboard from '../components/finance/Dashboard'
 
 export default function Home() {
   const [user, setUser] = useState(null)

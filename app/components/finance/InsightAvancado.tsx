@@ -14,7 +14,7 @@ import {
   Calendar,
   Zap
 } from 'lucide-react'
-import { InsightAvancado as InsightAvancadoType, GastosMensais, Transacao } from '../types/types'
+import { InsightAvancado as InsightAvancadoType, GastosMensais, Transacao } from '../../types/types'
 
 interface Props {
   insight: InsightAvancadoType

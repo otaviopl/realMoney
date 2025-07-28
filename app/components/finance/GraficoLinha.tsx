@@ -1,6 +1,6 @@
 'use client'
 import { motion } from 'framer-motion'
-import { GraficoEvolucao } from '../types/types'
+import { GraficoEvolucao } from '../../types/types'
 
 interface Props {
   data: GraficoEvolucao[]

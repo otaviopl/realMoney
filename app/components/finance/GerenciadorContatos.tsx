@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
-import { useToast } from '../lib/useToast'
+import { useToast } from '../../lib/useToast'
 import { motion } from 'framer-motion'
 import { X, Save, User, ArrowUp, ArrowDown, Edit, Trash2, Plus } from 'lucide-react'
-import { Contato } from '../types/types'
-import { supabase } from '../lib/supabaseClient'
+import { Contato } from '../../types/types'
+import { supabase } from '../../lib/supabaseClient'
 
 interface Props {
   isOpen: boolean

@@ -8,7 +8,7 @@ import {
   CheckCircle,
   AlertCircle
 } from 'lucide-react'
-import { Insight as InsightType } from '../types/types'
+import { Insight as InsightType } from '../../types/types'
 
 interface Props {
   insight: InsightType

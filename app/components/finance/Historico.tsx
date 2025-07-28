@@ -11,7 +11,7 @@ import {
   TrendingUp,
   TrendingDown
 } from 'lucide-react'
-import { GastosMensais } from '../types/types'
+import { GastosMensais } from '../../types/types'
 
 interface Props {
   historico: GastosMensais[]

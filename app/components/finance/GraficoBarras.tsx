@@ -1,6 +1,6 @@
 'use client'
 import { motion } from 'framer-motion'
-import { GraficoGastos } from '../types/types'
+import { GraficoGastos } from '../../types/types'
 
 interface Props {
   data: GraficoGastos[]

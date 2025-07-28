@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
-import { useToast } from '../lib/useToast'
+import { useToast } from '../../lib/useToast'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Plus, Edit, Trash2, Save, Tag, TrendingUp, TrendingDown } from 'lucide-react'
-import { Categoria } from '../types/types'
-import { supabase } from '../lib/supabaseClient'
+import { Categoria } from '../../types/types'
+import { supabase } from '../../lib/supabaseClient'
 
 interface Props {
   isOpen: boolean
@@ -21,19 +21,19 @@ export default function GerenciadorCategorias({ isOpen, onClose, onSuccess }: Pr
     tipo: 'saida' as 'entrada' | 'saida'
   })
   const toast = useToast()
+  const getToken = async () => (await supabase.auth.getSession()).data.session?.access_token || ''
 
   useEffect(() => { if (isOpen) carregarCategorias() }, [isOpen])
 
   const carregarCategorias = async () => {
     setLoading(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data: categoriasData } = await supabase
-          .from('categorias')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('nome')
+      const token = await getToken()
+      if (token) {
+        const res = await fetch('/api/categories', {
+          headers: { 'sb-access-token': token }
+        })
+        const categoriasData = await res.json()
         setCategorias(categoriasData || [])
       } else {
         const categoriasLocal = JSON.parse(localStorage.getItem('categorias') || '[]')
@@ -50,25 +50,25 @@ export default function GerenciadorCategorias({ isOpen, onClose, onSuccess }: Pr
     e.preventDefault()
     setLoading(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
+      const token = await getToken()
+      if (token) {
         const categoriaData = {
-          user_id: user.id,
           nome: formData.nome,
           tipo: formData.tipo
         }
-        if (editingCategoria && editingCategoria.id) {
-          const { error } = await supabase
-            .from('categorias')
-            .update(categoriaData)
-            .eq('id', editingCategoria.id)
-          if (error) throw error
-        } else {
-          const { error } = await supabase
-            .from('categorias')
-            .insert([categoriaData])
-          if (error) throw error
-        }
+        const url = editingCategoria && editingCategoria.id
+          ? `/api/categories/${editingCategoria.id}`
+          : '/api/categories'
+        const method = editingCategoria && editingCategoria.id ? 'PUT' : 'POST'
+        const res = await fetch(url, {
+          method,
+          headers: {
+            'Content-Type': 'application/json',
+            'sb-access-token': token
+          },
+          body: JSON.stringify(categoriaData)
+        })
+        if (!res.ok) throw new Error('Erro ao salvar')
       } else {
         const categoriasLocal = JSON.parse(localStorage.getItem('categorias') || '[]')
         if (editingCategoria && editingCategoria.id) {
@@ -104,13 +104,13 @@ export default function GerenciadorCategorias({ isOpen, onClose, onSuccess }: Pr
     if (!confirm(`Tem certeza que deseja deletar a categoria "${categoria.nome}"?`)) return
     setLoading(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { error } = await supabase
-          .from('categorias')
-          .delete()
-          .eq('id', categoria.id)
-        if (error) throw error
+      const token = await getToken()
+      if (token) {
+        const res = await fetch(`/api/categories/${categoria.id}`, {
+          method: 'DELETE',
+          headers: { 'sb-access-token': token }
+        })
+        if (!res.ok) throw new Error('Erro ao deletar')
       } else {
         const categoriasLocal = JSON.parse(localStorage.getItem('categorias') || '[]')
         const categoriasFiltradas = categoriasLocal.filter((c: Categoria) => c.id !== categoria.id)
