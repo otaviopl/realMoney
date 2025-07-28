@@ -5,6 +5,9 @@ import { X, Save, User, ArrowUp, ArrowDown, Edit, Trash2, Plus } from 'lucide-re
 import { Contato } from '../../types/types'
 import { supabase } from '../../lib/supabaseClient'
 
+const getToken = async () =>
+  (await supabase.auth.getSession()).data.session?.access_token || ''
+
 interface Props {
   isOpen: boolean
   onClose: () => void
@@ -29,14 +32,12 @@ export default function GerenciadorContatos({ isOpen, onClose, onSuccess }: Prop
 
   const carregarContatos = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data, error } = await supabase
-          .from('contatos')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('nome')
-        if (error) throw error
+      const token = await getToken()
+      if (token) {
+        const res = await fetch('/api/contacts', {
+          headers: { 'sb-access-token': token }
+        })
+        const data = await res.json()
         setContatos(data || [])
       } else {
         const contatosLocal = JSON.parse(localStorage.getItem('contatos') || '[]')
@@ -53,49 +54,46 @@ export default function GerenciadorContatos({ isOpen, onClose, onSuccess }: Prop
 
     setLoading(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
+      const token = await getToken()
+      if (token) {
         const contatoData = {
-          user_id: user.id,
           nome: formData.nome,
           tipo: formData.tipo || null
         }
-
+        const url = editingId ? `/api/contacts/${editingId}` : '/api/contacts'
+        const method = editingId ? 'PUT' : 'POST'
+        const res = await fetch(url, {
+          method,
+          headers: {
+            'Content-Type': 'application/json',
+            'sb-access-token': token
+          },
+          body: JSON.stringify(contatoData)
+        })
+        if (!res.ok) throw new Error('Erro ao salvar')
+      } else {
+        const contatosLocal = JSON.parse(localStorage.getItem('contatos') || '[]')
         if (editingId) {
-          const { error } = await supabase
-            .from('contatos')
-            .update(contatoData)
-            .eq('id', editingId)
-          if (error) throw error
-        } else {
-          const { error } = await supabase
-            .from('contatos')
-            .insert([contatoData])
-          if (error) throw error
-        }
-              } else {
-          const contatosLocal = JSON.parse(localStorage.getItem('contatos') || '[]')
-          if (editingId) {
-            const index = contatosLocal.findIndex((c: any) => c.id === editingId)
-            if (index !== -1) {
-              contatosLocal[index] = {
-                ...formData,
-                id: editingId,
-                user_id: 'local',
-                created_at: new Date().toISOString()
-              }
-            }
-          } else {
-            const novoContato = {
+          const index = contatosLocal.findIndex((c: any) => c.id === editingId)
+          if (index !== -1) {
+            contatosLocal[index] = {
               ...formData,
-              id: Date.now(),
+              id: editingId,
               user_id: 'local',
               created_at: new Date().toISOString()
             }
-            contatosLocal.push(novoContato)
           }
-          localStorage.setItem('contatos', JSON.stringify(contatosLocal))
+        } else {
+          const novoContato = {
+            ...formData,
+            id: Date.now(),
+            user_id: 'local',
+            created_at: new Date().toISOString()
+          }
+          contatosLocal.push(novoContato)
         }
+        localStorage.setItem('contatos', JSON.stringify(contatosLocal))
+      }
 
       setFormData({ nome: '', tipo: '' })
       setEditingId(null)
@@ -118,13 +116,13 @@ export default function GerenciadorContatos({ isOpen, onClose, onSuccess }: Prop
 
     setLoading(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { error } = await supabase
-          .from('contatos')
-          .delete()
-          .eq('id', id)
-        if (error) throw error
+      const token = await getToken()
+      if (token) {
+        const res = await fetch(`/api/contacts/${id}`, {
+          method: 'DELETE',
+          headers: { 'sb-access-token': token }
+        })
+        if (!res.ok) throw new Error('Erro ao excluir')
       } else {
         const contatosLocal = JSON.parse(localStorage.getItem('contatos') || '[]')
         const contatosFiltrados = contatosLocal.filter((c: any) => c.id !== id)

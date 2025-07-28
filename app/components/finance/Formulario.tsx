@@ -18,6 +18,9 @@ import {
 import { supabase } from '../../lib/supabaseClient'
 import { GastosMensais } from '../../types/types'
 
+const getToken = async () =>
+  (await supabase.auth.getSession()).data.session?.access_token || ''
+
 interface Props {
   onBack?: () => void
   editingData?: GastosMensais | null
@@ -67,14 +70,11 @@ export default function Formulario({ onBack, editingData }: Props) {
     setLoading(true)
 
     try {
-      // Tentar salvar no Supabase primeiro
-      const { data: { user } } = await supabase.auth.getUser()
-      
-      if (user) {
-        // Usuário logado no Supabase - salvar na nuvem
+      const token = await getToken()
+
+      if (token) {
         // Mapear camelCase para snake_case para o Supabase
-        const supabaseData = {
-          user_id: user.id,
+        const apiData = {
           mes: formData.mes,
           salario_liquido: formData.salarioLiquido,
           cartao_credito: formData.cartaoCredito,
@@ -86,24 +86,24 @@ export default function Formulario({ onBack, editingData }: Props) {
           meta_economia: formData.metaEconomia,
         }
 
-        if (editingData && editingData.id) {
-          // Atualizar registro existente
-          const { error } = await supabase
-            .from('resumo_mensal')
-            .update(supabaseData)
-            .eq('id', editingData.id)
+        const url = editingData && editingData.id
+          ? `/api/resumo-mensal/${editingData.id}`
+          : '/api/resumo-mensal'
+        const method = editingData && editingData.id ? 'PUT' : 'POST'
 
-          if (error) throw error
-          toast.success('Dados atualizados na nuvem com sucesso!')
-        } else {
-          // Inserir novo registro
-          const { error } = await supabase
-            .from('resumo_mensal')
-            .insert([supabaseData])
+        const res = await fetch(url, {
+          method,
+          headers: {
+            'Content-Type': 'application/json',
+            'sb-access-token': token
+          },
+          body: JSON.stringify(apiData)
+        })
 
-          if (error) throw error
-          toast.success('Dados salvos na nuvem com sucesso!')
-        }
+        if (!res.ok) throw new Error('Erro ao salvar')
+        toast.success(
+          editingData ? 'Dados atualizados na nuvem com sucesso!' : 'Dados salvos na nuvem com sucesso!'
+        )
       } else {
         // Usuário não logado - salvar localmente
         const gastos = JSON.parse(localStorage.getItem('gastos') || '[]')
