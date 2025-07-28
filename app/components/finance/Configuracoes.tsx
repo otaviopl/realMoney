@@ -109,7 +109,13 @@ export default function Configuracoes() {
         className="bg-white rounded-xl shadow-sm border border-gray-200 p-8"
       >
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <div className="flex justify-center mb-4">
+            <img 
+              src="/images/realMoney-white.ico" 
+              alt="realMoney Logo" 
+              className="h-12 w-12 animate-pulse"
+            />
+          </div>
           <p className="text-gray-600">Carregando configurações...</p>
         </div>
       </motion.div>
@@ -125,8 +131,15 @@ export default function Configuracoes() {
     >
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
         <div className="flex items-center space-x-3 mb-8">
-          <div className="p-3 bg-gray-100 rounded-lg">
-            <Settings className="h-6 w-6 text-gray-600" />
+          <div className="flex items-center space-x-3">
+            <img 
+              src="/images/realMoney-white.ico" 
+              alt="realMoney Logo" 
+              className="h-8 w-8"
+            />
+            <div className="p-3 bg-gray-100 rounded-lg">
+              <Settings className="h-6 w-6 text-gray-600" />
+            </div>
           </div>
           <div>
             <h2 className="text-2xl font-bold text-gray-900">Configurações</h2>

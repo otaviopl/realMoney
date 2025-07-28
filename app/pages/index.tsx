@@ -89,6 +89,13 @@ export default function Home() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
+          <div className="flex justify-center mb-4">
+            <img 
+              src="/images/realMoney-white.ico" 
+              alt="realMoney Logo" 
+              className="h-12 w-12 animate-pulse"
+            />
+          </div>
           <div className="text-gray-600">Carregando...</div>
         </div>
       </div>
@@ -100,8 +107,15 @@ export default function Home() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="max-w-md w-full space-y-8 p-8 bg-white rounded-lg shadow-lg">
           <div>
+            <div className="flex justify-center mb-4">
+              <img 
+                src="/images/realMoney-white.ico" 
+                alt="realMoney Logo" 
+                className="h-16 w-16"
+              />
+            </div>
             <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-              Financeiro do Otavio
+              realMoney
             </h2>
             <p className="mt-2 text-center text-sm text-gray-600">
               Sistema de controle financeiro pessoal
@@ -132,7 +146,14 @@ export default function Home() {
       <header className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <h1 className="text-xl font-bold text-gray-900">Financeiro do Otavio</h1>
+            <div className="flex items-center space-x-3">
+              <img 
+                src="/images/realMoney-white.ico" 
+                alt="realMoney Logo" 
+                className="h-6 w-6"
+              />
+              <h1 className="text-xl font-bold text-gray-900">realMoney</h1>
+            </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-600">{user.email}</span>
               {useLocalData && (
