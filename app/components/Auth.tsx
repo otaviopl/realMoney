@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { useToast } from '../lib/useToast'
 import { supabase } from '../lib/supabaseClient'
 
 export default function Auth() {
@@ -8,6 +9,7 @@ export default function Auth() {
   const [password, setPassword] = useState('')
   const [isSignUp, setIsSignUp] = useState(false)
   const [error, setError] = useState('')
+  const toast = useToast()
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -36,7 +38,7 @@ export default function Auth() {
           })
           
           if (signInError) {
-            alert('Conta criada! Verifique seu email para confirmar o cadastro.')
+            toast.success('Conta criada! Verifique seu email para confirmar o cadastro.')
           }
         }
         

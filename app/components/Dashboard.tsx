@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { useToast } from '../lib/useToast'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   User, 
@@ -81,6 +82,7 @@ export default function Dashboard() {
   const [showGerenciadorCategorias, setShowGerenciadorCategorias] = useState(false)
   const [showGerenciadorContatos, setShowGerenciadorContatos] = useState(false)
   const [tipoTransacaoRapida, setTipoTransacaoRapida] = useState<'entrada' | 'saida'>('saida')
+  const toast = useToast()
 
   useEffect(() => {
     carregarDados()
@@ -130,9 +132,8 @@ export default function Dashboard() {
             .update(dadosAtualizados)
             .eq('id', resumo.id)
           
-          console.log(`Resumo do mês ${resumo.mes} atualizado automaticamente`)
         } catch (error) {
-          console.error(`Erro ao atualizar resumo do mês ${resumo.mes}:`, error)
+          toast.error(`Erro ao atualizar resumo do mês ${resumo.mes}`)
         }
       }
     }
@@ -192,12 +193,11 @@ export default function Dashboard() {
               .delete()
               .eq('id', grupo[i].id)
             
-            console.log(`Resumo duplicado deletado: ${grupo[i].mes} (ID: ${grupo[i].id})`)
           }
         }
       }
     } catch (error) {
-      console.error('Erro ao limpar resumos duplicados:', error)
+      toast.error('Erro ao limpar resumos duplicados')
     }
   }
 
@@ -286,7 +286,6 @@ export default function Dashboard() {
         
       } else {
         // Usuário não logado - usar dados locais
-        console.log('Usando dados locais')
         setUseLocalData(true)
         
         // Carregar dados do localStorage
@@ -325,14 +324,14 @@ export default function Dashboard() {
           }))
           setTransacoes(transacoesMapeadas)
         } catch (localError) {
-          console.log('Erro ao carregar dados locais, usando mockados')
+          toast.error('Erro ao carregar dados locais, usando mockados')
           setGastos(mockGastos)
           setSelectedMonth(mockGastos[0])
           setConfig(mockConfig)
         }
       }
     } catch (error) {
-      console.log('Erro ao carregar dados do Supabase, usando locais')
+      toast.error('Erro ao carregar dados do Supabase, usando locais')
       setUseLocalData(true)
       
       // Fallback para dados locais
@@ -365,7 +364,7 @@ export default function Dashboard() {
         }))
         setTransacoes(transacoesMapeadas)
       } catch (localError) {
-        console.log('Erro ao carregar dados locais, usando mockados')
+        toast.error('Erro ao carregar dados locais, usando mockados')
         setGastos(mockGastos)
         setSelectedMonth(mockGastos[0])
         setConfig(mockConfig)

@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { useToast } from '../lib/useToast'
 import { supabase } from '../lib/supabaseClient'
 import { mockGastos, mockConfig } from '../lib/mockData'
 import Auth from '../components/Auth'
@@ -9,6 +10,7 @@ export default function Home() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [useLocalData, setUseLocalData] = useState(false)
+  const toast = useToast()
 
   useEffect(() => {
     // Verificar usuário atual
@@ -29,7 +31,7 @@ export default function Home() {
           }
         }
       } catch (error) {
-        console.log('Erro ao verificar usuário:', error)
+        toast.error('Erro ao verificar usuário')
         // Em caso de erro, usar dados locais se disponível
         const localUser = localStorage.getItem('currentUser')
         if (localUser) {
@@ -74,7 +76,7 @@ export default function Home() {
         await supabase.auth.signOut()
       }
     } catch (error) {
-      console.log('Erro ao fazer logout:', error)
+      toast.error('Erro ao fazer logout')
     }
   }
 
