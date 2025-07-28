@@ -29,7 +29,7 @@ import {
   Sun,
   Moon
 } from 'lucide-react'
-import { supabase, formatarMes } from '../../../lib/supabaseClient'
+import { supabase, formatarMes } from '../../lib/supabaseClient'
 import { mockGastos, mockConfig } from '../../lib/mockData'
 import GraficoBarras from './GraficoBarras'
 import GraficoLinha from './GraficoLinha'
@@ -39,9 +39,9 @@ import InsightAvancado from './InsightAvancado'
 import Historico from './Historico'
 import Configuracoes from './Configuracoes'
 import Formulario from './Formulario'
-import ModalTransacao from './ModalTransacao'
-import ModalNovoMes from './ModalNovoMes' // Adicionado import
-import ListaTransacoes from './ListaTransacoes' // Adicionado import
+import ModalTransacao from '../ui/ModalTransacao'
+import ModalNovoMes from '../ui/ModalNovoMes'
+import ListaTransacoes from './ListaTransacoes'
 import GerenciadorCategorias from './GerenciadorCategorias'
 import GerenciadorContatos from './GerenciadorContatos'
 import { gerarInsightAvancado } from '../../lib/insightEngine'

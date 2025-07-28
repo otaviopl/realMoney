@@ -8,15 +8,24 @@ import {
   MessageSquare,
   DollarSign
 } from 'lucide-react'
-import { Transacao } from '../../types/types'
+import { useTransactions } from '../../hooks/useTransactions'
+import { useCategories } from '../../hooks/useCategories'
+import { useContacts } from '../../hooks/useContacts'
 
-interface Props {
-  transacoes: Transacao[]
-  categorias: any[]
-}
+export default function ListaTransacoes() {
+  const { transactions, isLoading: isLoadingTransactions, error: errorTransactions } = useTransactions();
+  const { categories, isLoading: isLoadingCategories, error: errorCategories } = useCategories();
+  const { contacts, isLoading: isLoadingContacts, error: errorContacts } = useContacts();
 
-export default function ListaTransacoes({ transacoes, categorias }: Props) {
-  if (!transacoes || transacoes.length === 0) {
+  if (isLoadingTransactions || isLoadingCategories || isLoadingContacts) {
+    return <div>Carregando...</div>;
+  }
+
+  if (errorTransactions || errorCategories || errorContacts) {
+    return <div>Erro ao carregar os dados</div>;
+  }
+
+  if (!transactions || transactions.length === 0) {
     return (
       <div className="text-center py-8">
         <p className="text-gray-500">Nenhuma transação registrada neste mês</p>
@@ -24,9 +33,16 @@ export default function ListaTransacoes({ transacoes, categorias }: Props) {
     )
   }
 
-  const getCategoriaNome = (categoriaId: string) => {
-    const categoria = categorias.find(c => c.id === categoriaId)
+  const getCategoriaNome = (categoriaId: number | undefined) => {
+    if (!categoriaId) return 'Sem categoria';
+    const categoria = categories?.find(c => c.id === categoriaId)
     return categoria ? categoria.nome : 'Categoria não encontrada'
+  }
+
+  const getContatoNome = (contatoId: number | undefined) => {
+    if (!contatoId) return null;
+    const contato = contacts?.find(c => c.id === contatoId)
+    return contato ? contato.nome : 'Contato não encontrado'
   }
 
   const formatarData = (data: string) => {
@@ -42,7 +58,7 @@ export default function ListaTransacoes({ transacoes, categorias }: Props) {
 
   return (
     <div className="space-y-3">
-      {transacoes.map((transacao) => (
+      {transactions.map((transacao) => (
         <motion.div
           key={transacao.id}
           initial={{ opacity: 0, y: 10 }}
@@ -89,21 +105,21 @@ export default function ListaTransacoes({ transacoes, categorias }: Props) {
                   
                   <div className="flex items-center space-x-1">
                     <DollarSign className="h-3 w-3" />
-                    <span>{getCategoriaNome(transacao.categoriaId)}</span>
+                    <span>{getCategoriaNome(transacao.categoria_id)}</span>
                   </div>
                   
-                  {transacao.pessoaEnvolvida && (
+                  {transacao.contato_id && (
                     <div className="flex items-center space-x-1">
                       <User className="h-3 w-3" />
-                      <span>{transacao.pessoaEnvolvida}</span>
+                      <span>{getContatoNome(transacao.contato_id)}</span>
                     </div>
                   )}
                 </div>
                 
-                {transacao.observacoes && (
+                {transacao.descricao && (
                   <div className="flex items-start space-x-1 mt-2 text-sm text-gray-600">
                     <MessageSquare className="h-3 w-3 mt-0.5" />
-                    <span>{transacao.observacoes}</span>
+                    <span>{transacao.descricao}</span>
                   </div>
                 )}
               </div>
@@ -113,4 +129,4 @@ export default function ListaTransacoes({ transacoes, categorias }: Props) {
       ))}
     </div>
   )
-} 
+}

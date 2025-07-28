@@ -91,13 +91,15 @@ export interface GraficoEvolucao {
 }
 
 export interface Insight {
-  titulo: string
-  descricao: string
-  tipo: 'positivo' | 'negativo' | 'neutro'
+  titulo?: string
+  descricao?: string
+  tipo?: 'positivo' | 'negativo' | 'neutro'
   valor?: number
   porcentagem?: number
   mesesParaMeta?: number
   meta?: number
+  valorAtual?: number
+  mensagem?: string
 }
 
 export interface InsightAvancado {
