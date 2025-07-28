@@ -13,16 +13,56 @@ export const calcularResumoMensal = (
     return mesTransacao.toLowerCase() === mes.toLowerCase()
   })
 
+  // Função auxiliar para deduzir categoria pela descrição
+  const deduzirCategoriaPorDescricao = (descricao: string): string | null => {
+    const desc = descricao.toLowerCase()
+    
+    // Palavras-chave para salário/entradas
+    if (desc.includes('salario') || desc.includes('salário') || desc.includes('pix recebido') || desc.includes('transferencia recebida')) {
+      return 'salario'
+    }
+    
+    // Palavras-chave para mercado/compras
+    if (desc.includes('mercado') || desc.includes('supermercado') || desc.includes('atacadao') || desc.includes('carrefour') || desc.includes('extra')) {
+      return 'mercado'
+    }
+    
+    // Palavras-chave para gasolina
+    if (desc.includes('posto') || desc.includes('gasolina') || desc.includes('combustivel') || desc.includes('petrobras') || desc.includes('shell')) {
+      return 'gasolina'
+    }
+    
+    // Se não identificar, considerar como "outros"
+    return 'outros'
+  }
+
   // Calcular totais por categoria
   const totaisPorCategoria: { [key: string]: number } = {}
   
   transacoesDoMes.forEach(transacao => {
+    let nomeCategoria: string
+    
     if (transacao.categoria_id) {
+      // Transação com categoria definida
       const categoria = categorias.find(cat => cat.id === transacao.categoria_id)
       if (categoria) {
-        const nomeCategoria = categoria.nome.toLowerCase()
-        totaisPorCategoria[nomeCategoria] = (totaisPorCategoria[nomeCategoria] || 0) + Number(transacao.valor)
+        nomeCategoria = categoria.nome.toLowerCase()
+      } else {
+        return // Categoria não encontrada, pular transação
       }
+    } else {
+      // Transação sem categoria - tentar deduzir pela descrição
+      const categoriaDeuzida = deduzirCategoriaPorDescricao(transacao.descricao || '')
+      if (categoriaDeuzida) {
+        nomeCategoria = categoriaDeuzida
+      } else {
+        return // Não conseguiu deduzir, pular transação
+      }
+    }
+    
+    // Considerar apenas saídas para os cálculos de gastos (exceto salário)
+    if (transacao.tipo === 'saida' || nomeCategoria === 'salario') {
+      totaisPorCategoria[nomeCategoria] = (totaisPorCategoria[nomeCategoria] || 0) + Number(transacao.valor)
     }
   })
 

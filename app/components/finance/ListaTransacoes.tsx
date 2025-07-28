@@ -8,24 +8,27 @@ import {
   MessageSquare,
   DollarSign
 } from 'lucide-react'
-import { useTransactions } from '../../hooks/useTransactions'
 import { useCategories } from '../../hooks/useCategories'
 import { useContacts } from '../../hooks/useContacts'
+import { Transacao } from '../../types/types'
 
-export default function ListaTransacoes() {
-  const { transactions, isLoading: isLoadingTransactions, error: errorTransactions } = useTransactions();
+interface Props {
+  transacoes?: Transacao[]
+}
+
+export default function ListaTransacoes({ transacoes = [] }: Props) {
   const { categories, isLoading: isLoadingCategories, error: errorCategories } = useCategories();
   const { contacts, isLoading: isLoadingContacts, error: errorContacts } = useContacts();
 
-  if (isLoadingTransactions || isLoadingCategories || isLoadingContacts) {
+  if (isLoadingCategories || isLoadingContacts) {
     return <div>Carregando...</div>;
   }
 
-  if (errorTransactions || errorCategories || errorContacts) {
+  if (errorCategories || errorContacts) {
     return <div>Erro ao carregar os dados</div>;
   }
 
-  if (!transactions || transactions.length === 0) {
+  if (!transacoes || transacoes.length === 0) {
     return (
       <div className="text-center py-8">
         <p className="text-gray-500">Nenhuma transação registrada neste mês</p>
@@ -58,7 +61,7 @@ export default function ListaTransacoes() {
 
   return (
     <div className="space-y-3">
-      {transactions.map((transacao) => (
+      {transacoes.map((transacao) => (
         <motion.div
           key={transacao.id}
           initial={{ opacity: 0, y: 10 }}

@@ -9,6 +9,29 @@ const toISO = (date: string) => {
   return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`
 }
 
+const identificarTipo = (descricao: string): 'entrada' | 'saida' => {
+  const desc = descricao.toLowerCase()
+  
+  // Palavras-chave que indicam entrada
+  const palavrasEntrada = ['recebida', 'recebido', 'deposito', 'credito', 'transferencia recebida', 'pix recebido']
+  
+  // Palavras-chave que indicam saída
+  const palavrasSaida = ['enviada', 'enviado', 'debito', 'saque', 'transferencia enviada', 'pix enviado', 'pagamento']
+  
+  // Verificar entradas primeiro
+  if (palavrasEntrada.some(palavra => desc.includes(palavra))) {
+    return 'entrada'
+  }
+  
+  // Verificar saídas
+  if (palavrasSaida.some(palavra => desc.includes(palavra))) {
+    return 'saida'
+  }
+  
+  // Padrão: se não identificar, assumir como saída (mais conservador)
+  return 'saida'
+}
+
 export const parseBankCSV = (file: File): Promise<ParsedTransaction[]> => {
   return new Promise((resolve, reject) => {
     Papa.parse(file, {
@@ -17,12 +40,15 @@ export const parseBankCSV = (file: File): Promise<ParsedTransaction[]> => {
       complete: ({ data }) => {
         try {
           const parsed = (data as any[]).map((row) => {
-            const raw = parseFloat(String(row['Valor']).replace(',', '.'))
+            const valorStr = String(row['Valor'] || row['valor'] || '0').replace(',', '.')
+            const valor = Math.abs(parseFloat(valorStr))
+            const descricao = String(row['Descrição'] || row['Descricao'] || row['descricao'] || row['Historico'] || row['historico'] || '')
+            
             return {
-              data: toISO(String(row['Data'])),
-              valor: Math.abs(raw),
-              tipo: raw >= 0 ? 'entrada' : 'saida',
-              descricao: String(row['Descrição'] || row['Descricao'] || row['descricao'] || '')
+              data: toISO(String(row['Data'] || row['data'])),
+              valor: valor,
+              tipo: identificarTipo(descricao),
+              descricao: descricao
             } as ParsedTransaction
           })
           resolve(parsed)

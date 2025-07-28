@@ -27,7 +27,8 @@ import {
   Tag,
   RefreshCw,
   Sun,
-  Moon
+  Moon,
+  Upload
 } from 'lucide-react'
 import { supabase, formatarMes } from '../../lib/supabaseClient'
 import { mockGastos, mockConfig } from '../../lib/mockData'
@@ -41,10 +42,10 @@ import Configuracoes from './Configuracoes'
 import Formulario from './Formulario'
 import ModalTransacao from '../ui/ModalTransacao'
 import ModalNovoMes from '../ui/ModalNovoMes'
+import ImportarExtrato from '../ui/ImportarExtrato'
 import ListaTransacoes from './ListaTransacoes'
 import GerenciadorCategorias from './GerenciadorCategorias'
 import GerenciadorContatos from './GerenciadorContatos'
-import ImportarExtrato from '../ui/ImportarExtrato'
 import { gerarInsightAvancado } from '../../lib/insightEngine'
 import useThemeSwitcher from '../../hooks/useThemeSwitcher'
 import type { 
@@ -80,10 +81,10 @@ export default function Dashboard() {
   const [editingMonth, setEditingMonth] = useState<any | null>(null)
   const [showModalTransacao, setShowModalTransacao] = useState(false)
   const [showModalNovoMes, setShowModalNovoMes] = useState(false)
+  const [showImportExtrato, setShowImportExtrato] = useState(false)
   const [showGerenciadorCategorias, setShowGerenciadorCategorias] = useState(false)
   const [showGerenciadorContatos, setShowGerenciadorContatos] = useState(false)
   const [tipoTransacaoRapida, setTipoTransacaoRapida] = useState<'entrada' | 'saida'>('saida')
-  const [showImportExtrato, setShowImportExtrato] = useState(false)
   const toast = useToast()
 
   useEffect(() => {
@@ -826,7 +827,7 @@ export default function Dashboard() {
                   <Activity className="h-5 w-5 text-gray-400" />
                 </div>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   {/* Botão Entrada */}
                   <button
                     onClick={() => {
@@ -864,14 +865,28 @@ export default function Dashboard() {
                   {/* Botão Novo Mês */}
                   <button
                     onClick={() => setShowModalNovoMes(true)}
-                    className="flex items-center justify-center space-x-3 p-4 bg-gray-50 border-2 border-gray-200 rounded-lg hover:bg-gray-100 transition-colors group"
+                    className="flex items-center justify-center space-x-3 p-4 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors group"
                   >
                     <div className="p-2 bg-gray-500 rounded-lg group-hover:bg-gray-600 transition-colors">
                       <Plus className="h-5 w-5 text-white" />
                     </div>
                     <div className="text-left">
-                      <p className="font-medium text-gray-900">Novo Mês</p>
-                      <p className="text-sm text-gray-600">Adicionar mês</p>
+                      <p className="font-medium text-gray-900 dark:text-gray-100">Novo Mês</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-300">Adicionar mês</p>
+                    </div>
+                  </button>
+
+                  {/* Botão Importar Extrato */}
+                  <button
+                    onClick={() => setShowImportExtrato(true)}
+                    className="flex items-center justify-center space-x-3 p-4 bg-purple-50 dark:bg-purple-900/20 border-2 border-purple-200 dark:border-purple-800 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors group"
+                  >
+                    <div className="p-2 bg-purple-500 rounded-lg group-hover:bg-purple-600 transition-colors">
+                      <Upload className="h-5 w-5 text-white" />
+                    </div>
+                    <div className="text-left">
+                      <p className="font-medium text-purple-900 dark:text-purple-100">Importar Extrato</p>
+                      <p className="text-sm text-purple-600 dark:text-purple-300">Arquivo CSV/TXT</p>
                     </div>
                   </button>
                 </div>
@@ -997,22 +1012,14 @@ export default function Dashboard() {
                   animate="visible"
                   className="bg-white rounded-xl shadow-sm border border-gray-200 p-6"
                 >
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900">Transações do Mês</h3>
-                  <div className="flex items-center space-x-3">
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-lg font-semibold text-gray-900">Transações do Mês</h3>
                     <span className="text-sm text-gray-500">
                       {selectedMonth.transacoes.length} transação{selectedMonth.transacoes.length !== 1 ? 'ões' : ''}
                     </span>
-                    <button
-                      onClick={() => setShowImportExtrato(true)}
-                      className="text-sm text-blue-600 underline"
-                    >
-                      Importar extrato
-                    </button>
                   </div>
-                </div>
-                <ListaTransacoes />
-              </motion.div>
+                  <ListaTransacoes transacoes={selectedMonth.transacoes} />
+                </motion.div>
               )}
 
               {/* Bloco 7 – Explicação dos Cálculos */}
@@ -1242,11 +1249,13 @@ export default function Dashboard() {
         }}
       />
 
+      {/* Modal de Importar Extrato */}
       <ImportarExtrato
         isOpen={showImportExtrato}
-        onClose={() => {
-          setShowImportExtrato(false)
-          carregarDados()
+        onClose={() => setShowImportExtrato(false)}
+        onSuccess={async () => {
+          await carregarDados() // Recarregar dados após importação
+          toast.success('Dados atualizados! As transações importadas já estão sendo consideradas nos cálculos.')
         }}
       />
 
