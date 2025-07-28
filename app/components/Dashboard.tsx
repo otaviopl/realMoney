@@ -24,7 +24,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Tag,
-  RefreshCw
+  RefreshCw,
+  Sun,
+  Moon
 } from 'lucide-react'
 import { supabase, formatarMes } from '../lib/supabaseClient'
 import { mockGastos, mockConfig } from '../lib/mockData'
@@ -42,6 +44,7 @@ import ListaTransacoes from './ListaTransacoes' // Adicionado import
 import GerenciadorCategorias from './GerenciadorCategorias'
 import GerenciadorContatos from './GerenciadorContatos'
 import { gerarInsightAvancado } from '../lib/insightEngine'
+import useThemeSwitcher from '../hooks/useThemeSwitcher'
 import type { 
   GraficoGastos, 
   GraficoEvolucao, 
@@ -63,6 +66,7 @@ import {
 } from '../lib/calculoAutomatico'
 
 export default function Dashboard() {
+  const { theme, toggleTheme } = useThemeSwitcher()
   const [gastos, setGastos] = useState<any[]>([])
   const [config, setConfig] = useState<ConfiguracoesType | null>(null)
   const [transacoes, setTransacoes] = useState<Transacao[]>([])
@@ -384,24 +388,31 @@ export default function Dashboard() {
     const totalGastos = selectedMonth.cartaoCredito + selectedMonth.contasFixas + custoHashish + selectedMonth.mercado + selectedMonth.gasolina + (selectedMonth.outros || 0);
 
     return [
-      { categoria: 'Cartão de Crédito', valor: selectedMonth.cartaoCredito, porcentagem: (selectedMonth.cartaoCredito / totalGastos) * 100 },
-      { categoria: 'Contas Fixas', valor: selectedMonth.contasFixas, porcentagem: (selectedMonth.contasFixas / totalGastos) * 100 },
-      { categoria: 'Hashish', valor: custoHashish, porcentagem: (custoHashish / totalGastos) * 100 },
-      { categoria: 'Mercado', valor: selectedMonth.mercado, porcentagem: (selectedMonth.mercado / totalGastos) * 100 },
-      { categoria: 'Gasolina', valor: selectedMonth.gasolina, porcentagem: (selectedMonth.gasolina / totalGastos) * 100 },
-      { categoria: 'Outros', valor: selectedMonth.outros || 0, porcentagem: ((selectedMonth.outros || 0) / totalGastos) * 100 },
+      { categoria: 'Cartão de Crédito', valor: selectedMonth.cartaoCredito, porcentagem: (selectedMonth.cartaoCredito / totalGastos) * 100, cor: '#ef4444' }, // vermelho
+      { categoria: 'Contas Fixas', valor: selectedMonth.contasFixas, porcentagem: (selectedMonth.contasFixas / totalGastos) * 100, cor: '#fbbf24' }, // amarelo
+      { categoria: 'Hashish', valor: custoHashish, porcentagem: (custoHashish / totalGastos) * 100, cor: '#a78bfa' }, // roxo
+      { categoria: 'Mercado', valor: selectedMonth.mercado, porcentagem: (selectedMonth.mercado / totalGastos) * 100, cor: '#34d399' }, // verde
+      { categoria: 'Gasolina', valor: selectedMonth.gasolina, porcentagem: (selectedMonth.gasolina / totalGastos) * 100, cor: '#60a5fa' }, // azul
+      { categoria: 'Outros', valor: selectedMonth.outros || 0, porcentagem: ((selectedMonth.outros || 0) / totalGastos) * 100, cor: '#f472b6' }, // rosa
     ]
   }
 
   const calcularDadosGraficoEvolucao = (): GraficoEvolucao[] => {
-    return gastos.map(item => ({
-      mes: item.mes,
-      sobra: calcularSobra(item),
-      acumulado: 0 // Será calculado abaixo
-    })).map((item, index, array) => ({
-      ...item,
-      acumulado: array.slice(0, index + 1).reduce((acc, curr) => acc + curr.sobra, 0)
-    }))
+    let acumulado = 0;
+    return gastos.map(item => {
+      const entrada = item.salarioLiquido + item.flash;
+      const saida = item.cartaoCredito + item.contasFixas + (item.hashish * 95) + item.mercado + item.gasolina + (item.outros || 0);
+      const sobra = entrada - saida;
+      acumulado += sobra;
+      return {
+        mes: item.mes,
+        entrada,
+        saida,
+        saldo: sobra,
+        sobra,
+        acumulado
+      }
+    })
   }
 
   const calcularInsight = (): InsightType => {
@@ -501,25 +512,25 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       {/* Header Fixo */}
       <motion.header 
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50"
+        className="bg-white dark:bg-gray-900 shadow-sm border-b border-gray-200 dark:border-gray-800 sticky top-0 z-50"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-4">
-              <h1 className="text-2xl font-bold text-gray-900">realMoney</h1>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">realMoney</h1>
               
               {selectedMonth && (
                 <div className="flex items-center space-x-2">
                   <Calendar className="h-5 w-5 text-gray-400" />
-                  <span className="text-gray-700 font-medium">{selectedMonth.mes}</span>
+                  <span className="text-gray-700 dark:text-gray-300 font-medium">{selectedMonth.mes}</span>
                   <button
                     onClick={() => setShowMonthSelector(!showMonthSelector)}
-                    className="p-1 hover:bg-gray-100 rounded"
+                    className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
                   >
                     <ChevronDown className="h-4 w-4 text-gray-400" />
                   </button>
@@ -528,10 +539,23 @@ export default function Dashboard() {
             </div>
 
             <div className="flex items-center space-x-3">
+              {/* Botão de Toggle do Tema */}
+              <button
+                onClick={toggleTheme}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                title={`Mudar para modo ${theme === 'dark' ? 'claro' : 'escuro'}`}
+              >
+                {theme === 'dark' ? (
+                  <Sun className="h-5 w-5 text-yellow-500" />
+                ) : (
+                  <Moon className="h-5 w-5 text-gray-600" />
+                )}
+              </button>
+              
               <div className="relative">
-                <button className="flex items-center space-x-2 p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                  <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                    <User className="h-4 w-4 text-gray-600" />
+                <button className="flex items-center space-x-2 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
+                  <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center">
+                    <User className="h-4 w-4 text-gray-600 dark:text-gray-300" />
                   </div>
                   <ChevronDown className="h-4 w-4 text-gray-400" />
                 </button>
@@ -548,7 +572,7 @@ export default function Dashboard() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="bg-white border-b border-gray-200"
+            className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800"
           >
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
               <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
@@ -561,8 +585,8 @@ export default function Dashboard() {
                     }}
                     className={`p-3 text-sm rounded-lg border transition-colors ${
                       selectedMonth?.id === gasto.id
-                        ? 'bg-gray-900 text-white border-gray-900'
-                        : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                        ? 'bg-gray-900 dark:bg-blue-600 text-white border-gray-900 dark:border-blue-600'
+                        : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
                     }`}
                   >
                     {gasto.mes}
@@ -618,11 +642,11 @@ export default function Dashboard() {
                 {/* Saldo Atual */}
                 <motion.div
                   variants={cardVariants}
-                  className="bg-white rounded-xl shadow-sm border border-gray-200 p-6"
+                  className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-6"
                 >
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center space-x-2">
-                      <h3 className="text-sm font-medium text-gray-500">Saldo Atual</h3>
+                      <h3 className="text-sm font-medium text-gray-500 dark:text-gray-300">Saldo Atual</h3>
                       <div className="group relative">
                         <HelpCircle className="h-4 w-4 text-gray-400 cursor-help" />
                         <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
@@ -634,7 +658,7 @@ export default function Dashboard() {
                     <DollarSign className="h-5 w-5 text-gray-400" />
                   </div>
                   <div className="flex items-baseline">
-                    <span className="text-3xl font-bold text-gray-900">
+                    <span className="text-3xl font-bold text-gray-900 dark:text-gray-50">
                       R$ {selectedMonth ? calcularSobra(selectedMonth).toLocaleString('pt-BR') : '0'}
                     </span>
                     <span className="ml-2 text-sm text-green-600 flex items-center">
@@ -654,11 +678,11 @@ export default function Dashboard() {
                 {/* Economia */}
                 <motion.div
                   variants={cardVariants}
-                  className="bg-white rounded-xl shadow-sm border border-gray-200 p-6"
+                  className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6"
                 >
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center space-x-2">
-                      <h3 className="text-sm font-medium text-gray-500">Economia</h3>
+                      <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Economia</h3>
                       <div className="group relative">
                         <HelpCircle className="h-4 w-4 text-gray-400 cursor-help" />
                         <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
@@ -670,12 +694,12 @@ export default function Dashboard() {
                     <PiggyBank className="h-5 w-5 text-gray-400" />
                   </div>
                   <div className="flex items-baseline">
-                    <span className="text-3xl font-bold text-gray-900">
+                    <span className="text-3xl font-bold text-gray-900 dark:text-white">
                       R$ {selectedMonth ? selectedMonth.metaEconomia.toLocaleString('pt-BR') : '0'}
                     </span>
-                    <span className="ml-2 text-sm text-gray-500">meta</span>
+                    <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">meta</span>
                   </div>
-                  <p className="text-xs text-gray-500 mt-2">
+                  <p className="text-xs text-gray-500 dark:text-gray-300 mt-2">
                     Valor que você planeja economizar por mês
                   </p>
                 </motion.div>
@@ -683,11 +707,11 @@ export default function Dashboard() {
                 {/* Meta de Reserva */}
                 <motion.div
                   variants={cardVariants}
-                  className="bg-white rounded-xl shadow-sm border border-gray-200 p-6"
+                  className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6"
                 >
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center space-x-2">
-                      <h3 className="text-sm font-medium text-gray-500">Meta de Reserva</h3>
+                      <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Meta de Reserva</h3>
                       <div className="group relative">
                         <HelpCircle className="h-4 w-4 text-gray-400 cursor-help" />
                         <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
@@ -699,11 +723,11 @@ export default function Dashboard() {
                     <Target className="h-5 w-5 text-gray-400" />
                   </div>
                   <div className="flex items-baseline">
-                    <span className="text-3xl font-bold text-gray-900">
-                      R$ {config?.metaReserva?.toLocaleString('pt-BR') || '12.000'}
+                    <span className="text-3xl font-bold text-gray-900 dark:text-white">
+                      R$ {config?.meta_reserva?.toLocaleString('pt-BR') || '12.000'}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-500 mt-2">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                     Valor total para sua reserva de emergência
                   </p>
                 </motion.div>
@@ -711,7 +735,7 @@ export default function Dashboard() {
                 {/* Status */}
                 <motion.div
                   variants={cardVariants}
-                  className="bg-white rounded-xl shadow-sm border border-gray-200 p-6"
+                  className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6"
                 >
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center space-x-2">
@@ -733,8 +757,8 @@ export default function Dashboard() {
                       )
                     })()}
                   </div>
-                  <p className="text-sm text-gray-700">{getMoodAvatar().message}</p>
-                  <p className="text-xs text-gray-500 mt-2">
+                  <p className="text-sm text-gray-700 dark:text-gray-300">{getMoodAvatar().message}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                     {selectedMonth && (
                       <>
                         Sobra: R$ {calcularSobra(selectedMonth).toLocaleString('pt-BR')} | Meta: R$ {selectedMonth.metaEconomia.toLocaleString('pt-BR')}
@@ -754,10 +778,10 @@ export default function Dashboard() {
                 {/* Gráfico de Gastos */}
                 <motion.div
                   variants={cardVariants}
-                  className="bg-white rounded-xl shadow-sm border border-gray-200 p-6"
+                  className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6"
                 >
                   <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-lg font-semibold text-gray-900">Distribuição de Gastos</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Distribuição de Gastos</h3>
                     <PieChart className="h-5 w-5 text-gray-400" />
                   </div>
                   <GraficoBarras data={calcularDadosGraficoGastos()} />
@@ -766,10 +790,10 @@ export default function Dashboard() {
                 {/* Gráfico de Evolução */}
                 <motion.div
                   variants={cardVariants}
-                  className="bg-white rounded-xl shadow-sm border border-gray-200 p-6"
+                  className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6"
                 >
                   <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-lg font-semibold text-gray-900">Evolução do Saldo</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Evolução do Saldo</h3>
                     <Activity className="h-5 w-5 text-gray-400" />
                   </div>
                   <GraficoLinha data={calcularDadosGraficoEvolucao()} />
@@ -781,10 +805,10 @@ export default function Dashboard() {
                 variants={cardVariants}
                 initial="hidden"
                 animate="visible"
-                className="bg-white rounded-xl shadow-sm border border-gray-200 p-6"
+                className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6"
               >
                 <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900">Ações Rápidas</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Ações Rápidas</h3>
                   <Activity className="h-5 w-5 text-gray-400" />
                 </div>
                 
@@ -844,10 +868,10 @@ export default function Dashboard() {
                 variants={cardVariants}
                 initial="hidden"
                 animate="visible"
-                className="bg-white rounded-xl shadow-sm border border-gray-200 p-6"
+                className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6"
               >
                 <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900">Insights Inteligentes</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Insights Inteligentes</h3>
                   {(() => {
                     const mood = getMoodAvatar()
                     return (
@@ -870,10 +894,10 @@ export default function Dashboard() {
                   variants={cardVariants}
                   initial="hidden"
                   animate="visible"
-                  className="bg-white rounded-xl shadow-sm border border-gray-200 p-6"
+                  className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6"
                 >
                   <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-lg font-semibold text-gray-900">Detalhamento do Mês</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Detalhamento do Mês</h3>
                     <div className="flex space-x-2">
                       <button
                         onClick={() => handleEditar(selectedMonth)}
@@ -893,15 +917,15 @@ export default function Dashboard() {
                   </div>
                   
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="p-4 bg-gray-50 rounded-lg">
-                      <p className="text-sm text-gray-500 mb-1">Salário Líquido</p>
-                      <p className="text-lg font-semibold text-gray-900">
+                    <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Salário Líquido</p>
+                      <p className="text-lg font-semibold text-gray-900 dark:text-white">
                         R$ {selectedMonth.salarioLiquido.toLocaleString('pt-BR')}
                       </p>
                     </div>
-                    <div className="p-4 bg-gray-50 rounded-lg">
-                      <p className="text-sm text-gray-500 mb-1">Cartão de Crédito</p>
-                      <p className="text-lg font-semibold text-gray-900">
+                    <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Cartão de Crédito</p>
+                      <p className="text-lg font-semibold text-gray-900 dark:text-white">
                         R$ {selectedMonth.cartaoCredito.toLocaleString('pt-BR')}
                       </p>
                     </div>
@@ -977,42 +1001,42 @@ export default function Dashboard() {
                 variants={cardVariants}
                 initial="hidden"
                 animate="visible"
-                className="bg-white rounded-xl shadow-sm border border-gray-200 p-6"
+                className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6"
               >
                 <div className="flex items-center space-x-3 mb-6">
-                  <div className="p-2 bg-gray-100 rounded-lg">
-                    <Info className="h-5 w-5 text-gray-600" />
+                  <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                    <Info className="h-5 w-5 text-gray-600 dark:text-gray-300" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Como são calculados os dados?</h3>
-                    <p className="text-gray-500">Entenda a lógica por trás dos números</p>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Como são calculados os dados?</h3>
+                    <p className="text-gray-500 dark:text-gray-400">Entenda a lógica por trás dos números</p>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-4">
                     <div>
-                      <h4 className="font-medium text-gray-900 mb-2">Saldo Atual</h4>
-                      <div className="bg-gray-50 p-3 rounded-lg">
-                        <p className="text-sm text-gray-700">
+                      <h4 className="font-medium text-gray-900 dark:text-white mb-2">Saldo Atual</h4>
+                      <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                        <p className="text-sm text-gray-700 dark:text-gray-300">
                           <strong>Fórmula:</strong> Salário Líquido + Flash - Total de Gastos
                         </p>
-                        <p className="text-xs text-gray-500 mt-1">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                           Total de Gastos = Cartão + Contas Fixas + (Hashish × R$ 95) + Mercado + Gasolina + Outros
                         </p>
                       </div>
                     </div>
 
                     <div>
-                      <h4 className="font-medium text-gray-900 mb-2">Status do Mês</h4>
-                      <div className="bg-gray-50 p-3 rounded-lg">
-                        <p className="text-sm text-gray-700">
+                      <h4 className="font-medium text-gray-900 dark:text-white mb-2">Status do Mês</h4>
+                      <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                        <p className="text-sm text-gray-700 dark:text-gray-300">
                           <strong>Verde:</strong> Sobra &gt;= Meta mensal
                         </p>
-                        <p className="text-sm text-gray-700">
+                        <p className="text-sm text-gray-700 dark:text-gray-300">
                           <strong>Amarelo:</strong> Sobra &gt;= 70% da meta
                         </p>
-                        <p className="text-sm text-gray-700">
+                        <p className="text-sm text-gray-700 dark:text-gray-300">
                           <strong>Vermelho:</strong> Sobra &lt; 70% da meta
                         </p>
                       </div>
@@ -1021,24 +1045,24 @@ export default function Dashboard() {
 
                   <div className="space-y-4">
                     <div>
-                      <h4 className="font-medium text-gray-900 mb-2">Evolução do Saldo</h4>
-                      <div className="bg-gray-50 p-3 rounded-lg">
-                        <p className="text-sm text-gray-700">
+                      <h4 className="font-medium text-gray-900 dark:text-white mb-2">Evolução do Saldo</h4>
+                      <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                        <p className="text-sm text-gray-700 dark:text-gray-300">
                           <strong>Cálculo:</strong> Soma acumulada das sobras mensais
                         </p>
-                        <p className="text-xs text-gray-500 mt-1">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                           Mostra o crescimento do seu patrimônio ao longo do tempo
                         </p>
                       </div>
                     </div>
 
                     <div>
-                      <h4 className="font-medium text-gray-900 mb-2">Previsão de Meta</h4>
-                      <div className="bg-gray-50 p-3 rounded-lg">
-                        <p className="text-sm text-gray-700">
+                      <h4 className="font-medium text-gray-900 dark:text-white mb-2">Previsão de Meta</h4>
+                      <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg">
+                        <p className="text-sm text-gray-700 dark:text-gray-300">
                           <strong>Fórmula:</strong> (Meta Total - Valor Atual) / Média de Sobra Mensal
                         </p>
-                        <p className="text-xs text-gray-500 mt-1">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                           Baseado na média histórica dos últimos meses
                         </p>
                       </div>
@@ -1046,12 +1070,12 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                   <div className="flex items-start space-x-3">
-                    <Info className="h-5 w-5 text-blue-500 mt-0.5" />
+                    <Info className="h-5 w-5 text-blue-500 dark:text-blue-400 mt-0.5" />
                     <div>
-                      <h4 className="font-medium text-blue-900 mb-1">Dica</h4>
-                      <p className="text-sm text-blue-700">
+                      <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-1">Dica</h4>
+                      <p className="text-sm text-blue-700 dark:text-blue-300">
                         Quanto mais dados você adicionar, mais precisas serão as previsões e insights. 
                         Mantenha seus registros atualizados para ter uma visão clara do seu progresso financeiro.
                       </p>
@@ -1094,7 +1118,7 @@ export default function Dashboard() {
       <motion.nav
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40"
+        className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-40"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-around py-2">
@@ -1102,8 +1126,8 @@ export default function Dashboard() {
               onClick={() => setActiveTab('dashboard')}
               className={`flex flex-col items-center py-2 px-3 rounded-lg transition-colors ${
                 activeTab === 'dashboard'
-                  ? 'text-gray-900 bg-gray-100'
-                  : 'text-gray-500 hover:text-gray-700'
+                  ? 'text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
               }`}
             >
               <BarChart3 className="h-5 w-5 mb-1" />
@@ -1113,8 +1137,8 @@ export default function Dashboard() {
               onClick={() => setActiveTab('historico')}
               className={`flex flex-col items-center py-2 px-3 rounded-lg transition-colors ${
                 activeTab === 'historico'
-                  ? 'text-gray-900 bg-gray-100'
-                  : 'text-gray-500 hover:text-gray-700'
+                  ? 'text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
               }`}
             >
               <Activity className="h-5 w-5 mb-1" />
@@ -1124,8 +1148,8 @@ export default function Dashboard() {
               onClick={() => setActiveTab('configuracoes')}
               className={`flex flex-col items-center py-2 px-3 rounded-lg transition-colors ${
                 activeTab === 'configuracoes'
-                  ? 'text-gray-900 bg-gray-100'
-                  : 'text-gray-500 hover:text-gray-700'
+                  ? 'text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
               }`}
             >
               <Target className="h-5 w-5 mb-1" />
@@ -1133,14 +1157,14 @@ export default function Dashboard() {
             </button>
             <button
               onClick={() => setShowGerenciadorCategorias(true)}
-              className="flex flex-col items-center py-2 px-3 rounded-lg transition-colors text-gray-500 hover:text-gray-700"
+              className="flex flex-col items-center py-2 px-3 rounded-lg transition-colors text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
             >
               <Tag className="h-5 w-5 mb-1" />
               <span className="text-xs">Categorias</span>
             </button>
             <button
               onClick={() => setShowGerenciadorContatos(true)}
-              className="flex flex-col items-center py-2 px-3 rounded-lg transition-colors text-gray-500 hover:text-gray-700"
+              className="flex flex-col items-center py-2 px-3 rounded-lg transition-colors text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
             >
               <User className="h-5 w-5 mb-1" />
               <span className="text-xs">Contatos</span>
@@ -1148,7 +1172,7 @@ export default function Dashboard() {
 
             <button
               onClick={() => setShowModalNovoMes(true)}
-              className="flex flex-col items-center py-2 px-3 rounded-lg transition-colors text-gray-500 hover:text-gray-700"
+              className="flex flex-col items-center py-2 px-3 rounded-lg transition-colors text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
             >
               <Plus className="h-5 w-5 mb-1" />
               <span className="text-xs">Novo</span>
