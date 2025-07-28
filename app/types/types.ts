@@ -14,6 +14,7 @@ export interface Categoria {
   user_id: string
   nome: string
   tipo: 'entrada' | 'saida'
+  icone?: string
   created_at?: string
 }
 
@@ -102,14 +103,49 @@ export interface Insight {
   mensagem?: string
 }
 
+export interface Meta {
+  id?: number
+  user_id?: string
+  nome: string
+  tipo: 'valor_fixo' | 'percentual' | 'porcentagem_salario' | 'limite_categoria'
+  valor: number
+  categoria_id?: number
+  periodo: 'mensal' | 'anual'
+  ativa: boolean
+  alerta_em?: number
+  created_at?: string
+  updated_at?: string
+  // For compatibility with existing code
+  categoriaId?: number
+  createdAt?: string
+  userId?: string
+  alertaEm?: number
+}
+
 export interface InsightAvancado {
-  titulo: string
-  descricao: string
-  tipo: 'sucesso' | 'alerta' | 'info'
-  metricas: {
+  titulo?: string
+  descricao?: string
+  tipo?: 'sucesso' | 'alerta' | 'info'
+  metricas?: {
     valor: number
     label: string
     cor: string
   }[]
-  recomendacoes: string[]
+  recomendacoes?: {
+    titulo: string
+    descricao: string
+    impacto: 'alto' | 'medio' | 'baixo'
+  }[]
+  alertas?: {
+    tipo: 'sucesso' | 'atencao' | 'perigo'
+    titulo: string
+    descricao: string
+    acao?: string
+  }[]
+  previsoes?: {
+    saldoProximoMes: number
+    metaRealizavel: boolean
+    tempoParaMeta: number
+    mesesParaReserva: number
+  }
 }
