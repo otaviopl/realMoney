@@ -92,6 +92,12 @@ export default function ModalTransacao({ isOpen, onClose, onSuccess, editingTran
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    if (!formData.valor || formData.valor <= 0) {
+      toast.error('Valor deve ser maior que zero')
+      return
+    }
+
     setLoading(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
