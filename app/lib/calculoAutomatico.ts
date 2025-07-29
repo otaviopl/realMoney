@@ -1,5 +1,123 @@
 import { Transacao, ResumoMensal, Categoria } from '../types/types'
 
+// Interface para representar gastos mensais da tabela gastos_mensais
+export interface GastoMensal {
+  id?: number
+  user_id: string
+  mes: string
+  categoria_id: number
+  quantidade: number
+  valor_unitario?: number
+  valor_total?: number
+  created_at?: string
+  updated_at?: string
+}
+
+// Nova função para calcular saldo seguindo a fórmula: (entradas) - (saidas) - (salario - despesas dos forms)
+export const calcularSaldoComNovaFormula = (
+  transacoes: Transacao[],
+  gastosMensais: GastoMensal[],
+  mes?: string
+): number => {
+  // Filtrar transações do mês se especificado
+  let transacoesFiltradas = transacoes
+  if (mes) {
+    transacoesFiltradas = transacoes.filter(transacao => {
+      const dataTransacao = new Date(transacao.data)
+      const mesTransacao = dataTransacao.toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
+      return mesTransacao.toLowerCase() === mes.toLowerCase()
+    })
+  }
+
+  // Calcular total de entradas
+  const totalEntradas = transacoesFiltradas
+    .filter(t => t.tipo === 'entrada')
+    .reduce((total, t) => total + Number(t.valor), 0)
+
+  // Calcular total de saídas
+  const totalSaidas = transacoesFiltradas
+    .filter(t => t.tipo === 'saida')
+    .reduce((total, t) => total + Number(t.valor), 0)
+
+  // Filtrar gastos mensais do mês se especificado
+  let gastosMensaisFiltrados = gastosMensais
+  if (mes) {
+    gastosMensaisFiltrados = gastosMensais.filter(gasto => 
+      gasto.mes.toLowerCase() === mes.toLowerCase()
+    )
+  }
+
+  // Calcular total de despesas dos forms (gastos mensais)
+  const totalDespesasForms = gastosMensaisFiltrados.reduce((total, gasto) => {
+    return total + (gasto.valor_total || (gasto.quantidade * (gasto.valor_unitario || 0)))
+  }, 0)
+
+  // Calcular salário total do mês das transações de entrada
+  const salarioTransacoes = transacoesFiltradas
+    .filter(t => t.tipo === 'entrada')
+    .reduce((total, t) => total + Number(t.valor), 0)
+
+  // Aplicar a fórmula: (entradas) - (saidas) - (salario - despesas dos forms)
+  return totalEntradas - totalSaidas - (salarioTransacoes - totalDespesasForms)
+}
+
+// Função para obter resumo detalhado seguindo a nova fórmula
+export const obterResumoDetalhado = (
+  transacoes: Transacao[],
+  gastosMensais: GastoMensal[],
+  mes?: string
+) => {
+  // Filtrar transações do mês se especificado
+  let transacoesFiltradas = transacoes
+  if (mes) {
+    transacoesFiltradas = transacoes.filter(transacao => {
+      const dataTransacao = new Date(transacao.data)
+      const mesTransacao = dataTransacao.toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
+      return mesTransacao.toLowerCase() === mes.toLowerCase()
+    })
+  }
+
+  // Calcular totais das transações
+  const totalEntradas = transacoesFiltradas
+    .filter(t => t.tipo === 'entrada')
+    .reduce((total, t) => total + Number(t.valor), 0)
+
+  const totalSaidas = transacoesFiltradas
+    .filter(t => t.tipo === 'saida')
+    .reduce((total, t) => total + Number(t.valor), 0)
+
+  // Filtrar e calcular gastos mensais
+  let gastosMensaisFiltrados = gastosMensais
+  if (mes) {
+    gastosMensaisFiltrados = gastosMensais.filter(gasto => 
+      gasto.mes.toLowerCase() === mes.toLowerCase()
+    )
+  }
+
+  const totalDespesasForms = gastosMensaisFiltrados.reduce((total, gasto) => {
+    return total + (gasto.valor_total || (gasto.quantidade * (gasto.valor_unitario || 0)))
+  }, 0)
+
+  // Saldo final usando a nova fórmula
+  const saldoFinal = calcularSaldoComNovaFormula(transacoes, gastosMensais, mes)
+
+  return {
+    totalEntradas,
+    totalSaidas,
+    totalDespesasForms,
+    salarioTransacoes: totalEntradas, // Assumindo que entradas são salários
+    saldoFinal,
+    detalhesCalculo: {
+      formula: '(Entradas) - (Saídas) - (Salário - Despesas dos Forms)',
+      entradas: totalEntradas,
+      saidas: totalSaidas,
+      salario: totalEntradas,
+      despesasForms: totalDespesasForms,
+      resultado: `${totalEntradas} - ${totalSaidas} - (${totalEntradas} - ${totalDespesasForms}) = ${saldoFinal}`
+    }
+  }
+}
+
 // Função para calcular automaticamente os valores do resumo mensal baseado nas transações
 export const calcularResumoMensal = (
   transacoes: Transacao[],
