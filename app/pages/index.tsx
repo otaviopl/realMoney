@@ -6,12 +6,14 @@ import { mockGastos, mockConfig } from '../lib/mockData'
 import Auth from '../components/ui/Auth'
 import Dashboard from '../components/finance/Dashboard'
 import DashboardNovo from '../components/finance/DashboardNovo'
+import DashboardModerno from '../components/finance/DashboardModerno'
 
 export default function Home() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [useLocalData, setUseLocalData] = useState(false)
   const [useNewDashboard, setUseNewDashboard] = useState(true) // Por padrão usar o novo dashboard
+  const [useDashboardModerno, setUseDashboardModerno] = useState(true) // Usar o dashboard moderno por padrão
   const toast = useToast()
 
   useEffect(() => {
@@ -164,6 +166,16 @@ export default function Home() {
                 </span>
               )}
               <button
+                onClick={() => setUseDashboardModerno(!useDashboardModerno)}
+                className={`text-xs px-3 py-1 rounded transition-colors ${
+                  useDashboardModerno 
+                    ? 'bg-purple-100 text-purple-800 hover:bg-purple-200' 
+                    : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                }`}
+              >
+                {useDashboardModerno ? 'Dashboard Moderno' : 'Dashboard Clássico'}
+              </button>
+              <button
                 onClick={() => setUseNewDashboard(!useNewDashboard)}
                 className={`text-xs px-3 py-1 rounded transition-colors ${
                   useNewDashboard 
@@ -185,8 +197,14 @@ export default function Home() {
       </header>
 
       {/* Main content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {useNewDashboard ? <DashboardNovo /> : <Dashboard />}
+      <main>
+        {useDashboardModerno ? (
+          <DashboardModerno />
+        ) : useNewDashboard ? (
+          <DashboardNovo />
+        ) : (
+          <Dashboard />
+        )}
       </main>
     </div>
   )
