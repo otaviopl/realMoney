@@ -46,6 +46,7 @@ import ImportarExtrato from '../ui/ImportarExtrato'
 import ListaTransacoes from './ListaTransacoes'
 import GerenciadorCategorias from './GerenciadorCategorias'
 import GerenciadorContatos from './GerenciadorContatos'
+import GerenciadorGastos from './GerenciadorGastos'
 import { gerarInsightAvancado } from '../../lib/insightEngine'
 import useThemeSwitcher from '../../hooks/useThemeSwitcher'
 import type { 
@@ -57,6 +58,7 @@ import type {
   Transacao,
   Categoria,
   GastosMensais,
+  GastoMensal,
   ResumoMensal
 } from '../../types/types'
 import { 
@@ -65,12 +67,15 @@ import {
   calcularTotalEntradas,
   calcularTotalSaidas,
   calcularSobraMensal,
-  deveAtualizarResumoAutomatico
+  deveAtualizarResumoAutomatico,
+  calcularSaldoComNovaFormula,
+  obterResumoDetalhado
 } from '../../lib/calculoAutomatico'
 
 export default function Dashboard() {
   const { theme, toggleTheme } = useThemeSwitcher()
   const [gastos, setGastos] = useState<any[]>([])
+  const [gastosMensais, setGastosMensais] = useState<GastoMensal[]>([])
   const [config, setConfig] = useState<ConfiguracoesType | null>(null)
   const [transacoes, setTransacoes] = useState<Transacao[]>([])
   const [loading, setLoading] = useState(true)
@@ -84,6 +89,7 @@ export default function Dashboard() {
   const [showImportExtrato, setShowImportExtrato] = useState(false)
   const [showGerenciadorCategorias, setShowGerenciadorCategorias] = useState(false)
   const [showGerenciadorContatos, setShowGerenciadorContatos] = useState(false)
+  const [showGerenciadorGastos, setShowGerenciadorGastos] = useState(false)
   const [tipoTransacaoRapida, setTipoTransacaoRapida] = useState<'entrada' | 'saida'>('saida')
   const toast = useToast()
 
@@ -276,6 +282,15 @@ export default function Dashboard() {
         }))
 
         setTransacoes(transacoesMapeadas)
+
+        // Carregar gastos mensais do usuário
+        const { data: gastosMensaisData } = await supabase
+          .from('gastos_mensais')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+
+        setGastosMensais(gastosMensaisData || [])
         
         // Comentado para evitar zerar dados - a atualização agora é feita apenas ao adicionar transações
         // await atualizarResumosAutomaticamente(resumosMapeados, transacoesMapeadas, [], user.id)
@@ -295,6 +310,7 @@ export default function Dashboard() {
         try {
           const localGastos = JSON.parse(localStorage.getItem('gastos') || '[]')
           const localTransacoes = JSON.parse(localStorage.getItem('transacoes') || '[]')
+          const localGastosMensais = JSON.parse(localStorage.getItem('gastos_mensais') || '[]')
           
           if (localGastos.length > 0) {
             const gastosComTransacoes = associarTransacoesAosMeses(localGastos, localTransacoes)
@@ -326,6 +342,7 @@ export default function Dashboard() {
             updatedAt: t.updatedAt,
           }))
           setTransacoes(transacoesMapeadas)
+          setGastosMensais(localGastosMensais)
         } catch (localError) {
           toast.error('Erro ao carregar dados locais, usando mockados')
           setGastos(mockGastos)
@@ -378,9 +395,9 @@ export default function Dashboard() {
   }
 
   const calcularSobra = (item: any) => {
-    const custoHashish = item.hashish * 95; // Calculate total cost of hashish
-    const totalGastos = item.cartaoCredito + item.contasFixas + custoHashish + item.mercado + item.gasolina + (item.outros || 0);
-    return item.salarioLiquido + item.flash - totalGastos;
+    // Usar a nova fórmula: (entradas) - (saidas) - (salario - despesas dos forms)
+    const resumoDetalhado = obterResumoDetalhado(transacoes, gastosMensais, item.mes)
+    return resumoDetalhado.saldoFinal
   }
 
   const calcularDadosGraficoGastos = (): GraficoGastos[] => {
@@ -929,6 +946,13 @@ export default function Dashboard() {
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Detalhamento do Mês</h3>
                     <div className="flex space-x-2">
                       <button
+                        onClick={() => setShowGerenciadorGastos(true)}
+                        className="inline-flex items-center px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        <DollarSign className="h-4 w-4 mr-2" />
+                        Gastos
+                      </button>
+                      <button
                         onClick={() => handleEditar(selectedMonth)}
                         className="inline-flex items-center px-3 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
                       >
@@ -999,6 +1023,92 @@ export default function Dashboard() {
                       <p className="text-lg font-semibold text-green-600">
                         R$ {calcularSobra(selectedMonth).toLocaleString('pt-BR')}
                       </p>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Bloco 5.5 – Nova Fórmula de Cálculo */}
+              {selectedMonth && (
+                <motion.div
+                  variants={cardVariants}
+                  initial="hidden"
+                  animate="visible"
+                  className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl shadow-sm border border-blue-200 dark:border-blue-800 p-6"
+                >
+                  <div className="flex items-center space-x-3 mb-6">
+                    <div className="p-2 bg-blue-100 dark:bg-blue-800 rounded-lg">
+                      <Zap className="h-5 w-5 text-blue-600 dark:text-blue-300" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Cálculo com Nova Fórmula</h3>
+                      <p className="text-gray-500 dark:text-gray-400">Baseado na nova metodologia: (Entradas) - (Saídas) - (Salário - Despesas dos Forms)</p>
+                    </div>
+                  </div>
+
+                  {(() => {
+                    const resumoDetalhado = obterResumoDetalhado(transacoes, gastosMensais, selectedMonth.mes)
+                    return (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="p-4 bg-white dark:bg-gray-800 rounded-lg border border-blue-100 dark:border-blue-700">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <TrendingUp className="h-4 w-4 text-green-500" />
+                            <span className="text-sm text-gray-500 dark:text-gray-400">Total Entradas</span>
+                          </div>
+                          <p className="text-lg font-semibold text-green-600">
+                            R$ {resumoDetalhado.totalEntradas.toLocaleString('pt-BR')}
+                          </p>
+                        </div>
+
+                        <div className="p-4 bg-white dark:bg-gray-800 rounded-lg border border-blue-100 dark:border-blue-700">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <TrendingDown className="h-4 w-4 text-red-500" />
+                            <span className="text-sm text-gray-500 dark:text-gray-400">Total Saídas</span>
+                          </div>
+                          <p className="text-lg font-semibold text-red-600">
+                            R$ {resumoDetalhado.totalSaidas.toLocaleString('pt-BR')}
+                          </p>
+                        </div>
+
+                        <div className="p-4 bg-white dark:bg-gray-800 rounded-lg border border-blue-100 dark:border-blue-700">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <DollarSign className="h-4 w-4 text-purple-500" />
+                            <span className="text-sm text-gray-500 dark:text-gray-400">Despesas Forms</span>
+                          </div>
+                          <p className="text-lg font-semibold text-purple-600">
+                            R$ {resumoDetalhado.totalDespesasForms.toLocaleString('pt-BR')}
+                          </p>
+                        </div>
+
+                        <div className="p-4 bg-white dark:bg-gray-800 rounded-lg border border-blue-100 dark:border-blue-700">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <Target className="h-4 w-4 text-blue-500" />
+                            <span className="text-sm text-gray-500 dark:text-gray-400">Saldo Final</span>
+                          </div>
+                          <p className={`text-lg font-semibold ${
+                            resumoDetalhado.saldoFinal >= 0 ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            R$ {resumoDetalhado.saldoFinal.toLocaleString('pt-BR')}
+                          </p>
+                        </div>
+                      </div>
+                    )
+                  })()}
+
+                  <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg">
+                    <div className="flex items-start space-x-3">
+                      <Info className="h-5 w-5 text-blue-500 dark:text-blue-400 mt-0.5" />
+                      <div>
+                        <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-1">Fórmula Aplicada</h4>
+                        {(() => {
+                          const resumoDetalhado = obterResumoDetalhado(transacoes, gastosMensais, selectedMonth.mes)
+                          return (
+                            <p className="text-sm text-blue-700 dark:text-blue-300">
+                              {resumoDetalhado.detalhesCalculo.resultado}
+                            </p>
+                          )
+                        })()}
+                      </div>
                     </div>
                   </div>
                 </motion.div>
@@ -1197,6 +1307,14 @@ export default function Dashboard() {
             </button>
 
             <button
+              onClick={() => setShowGerenciadorGastos(true)}
+              className="flex flex-col items-center py-2 px-3 rounded-lg transition-colors text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+            >
+              <DollarSign className="h-5 w-5 mb-1" />
+              <span className="text-xs">Gastos</span>
+            </button>
+
+            <button
               onClick={() => setShowModalNovoMes(true)}
               className="flex flex-col items-center py-2 px-3 rounded-lg transition-colors text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
             >
@@ -1247,6 +1365,16 @@ export default function Dashboard() {
         onSuccess={() => {
           carregarDados() // Recarregar dados após alterações nos contatos
         }}
+      />
+
+      {/* Modal de Gerenciador de Gastos */}
+      <GerenciadorGastos
+        isOpen={showGerenciadorGastos}
+        onClose={() => setShowGerenciadorGastos(false)}
+        onSuccess={() => {
+          carregarDados() // Recarregar dados após alterações nos gastos
+        }}
+        mesSelecionado={selectedMonth?.mes}
       />
 
       {/* Modal de Importar Extrato */}
