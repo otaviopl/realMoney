@@ -5,11 +5,13 @@ import { supabase } from '../lib/supabaseClient'
 import { mockGastos, mockConfig } from '../lib/mockData'
 import Auth from '../components/ui/Auth'
 import Dashboard from '../components/finance/Dashboard'
+import DashboardNovo from '../components/finance/DashboardNovo'
 
 export default function Home() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [useLocalData, setUseLocalData] = useState(false)
+  const [useNewDashboard, setUseNewDashboard] = useState(true) // Por padrão usar o novo dashboard
   const toast = useToast()
 
   useEffect(() => {
@@ -162,6 +164,16 @@ export default function Home() {
                 </span>
               )}
               <button
+                onClick={() => setUseNewDashboard(!useNewDashboard)}
+                className={`text-xs px-3 py-1 rounded transition-colors ${
+                  useNewDashboard 
+                    ? 'bg-blue-100 text-blue-800 hover:bg-blue-200' 
+                    : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                }`}
+              >
+                {useNewDashboard ? 'Novo Schema' : 'Schema Antigo'}
+              </button>
+              <button
                 onClick={handleSignOut}
                 className="text-sm text-gray-600 hover:text-gray-900"
               >
@@ -174,7 +186,7 @@ export default function Home() {
 
       {/* Main content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Dashboard />
+        {useNewDashboard ? <DashboardNovo /> : <Dashboard />}
       </main>
     </div>
   )

@@ -16,18 +16,27 @@ export async function GET(req: NextRequest) {
     }
 
     const { data, error } = await supabase
-      .from('contatos')
+      .from('configuracoes')
       .select('*')
       .eq('user_id', user.id)
-      .order('nome')
+      .single()
 
-    if (error) {
+    if (error && error.code !== 'PGRST116') {
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // Se não existem configurações, retornar valores padrão
+    if (!data) {
+      return NextResponse.json({
+        meta_reserva: 12000,
+        saldo_inicial: 0,
+        user_id: user.id
+      })
     }
 
     return NextResponse.json(data)
   } catch (error) {
-    console.error('Erro ao buscar contatos:', error)
+    console.error('Erro ao buscar configurações:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -48,14 +57,16 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json()
     
-    const contatoData = {
-      ...body,
-      user_id: user.id
+    const configData = {
+      user_id: user.id,
+      meta_reserva: body.meta_reserva || 12000,
+      saldo_inicial: body.saldo_inicial || 0,
+      updated_at: new Date().toISOString()
     }
 
     const { data, error } = await supabase
-      .from('contatos')
-      .insert(contatoData)
+      .from('configuracoes')
+      .upsert(configData)
       .select()
       .single()
 
@@ -65,7 +76,11 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(data)
   } catch (error) {
-    console.error('Erro ao criar contato:', error)
+    console.error('Erro ao salvar configurações:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
+}
+
+export async function PUT(req: NextRequest) {
+  return POST(req) // Redirecionar PUT para POST (upsert)
 }

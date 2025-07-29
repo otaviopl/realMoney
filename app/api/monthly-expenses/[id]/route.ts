@@ -1,21 +1,77 @@
-import { NextResponse } from 'next/server'
-import { supabase } from '../../../lib/supabaseClient'
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
-  const { id } = params
-  const body = await request.json()
-  const { data, error } = await supabase.from('gastos_mensais').update(body).eq('id', id).select()
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const token = req.headers.get('sb-access-token') || ''
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { global: { headers: { Authorization: `Bearer ${token}` } } }
+    )
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { id } = params
+    const body = await req.json()
+    
+    // Calcular valor_total se necessário
+    const gastoData = {
+      ...body,
+      valor_total: body.valor_total || (body.quantidade * (body.valor_unitario || 0))
+    }
+    
+    const { data, error } = await supabase
+      .from('gastos_mensais')
+      .update(gastoData)
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .select()
+      .single()
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json(data)
+  } catch (error) {
+    console.error('Erro ao atualizar gasto mensal:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
-  return NextResponse.json(data[0])
 }
 
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
-  const { id } = params
-  const { error } = await supabase.from('gastos_mensais').delete().eq('id', id)
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const token = req.headers.get('sb-access-token') || ''
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { global: { headers: { Authorization: `Bearer ${token}` } } }
+    )
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { id } = params
+    
+    const { error } = await supabase
+      .from('gastos_mensais')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id)
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ message: 'Gasto mensal deletado com sucesso' })
+  } catch (error) {
+    console.error('Erro ao deletar gasto mensal:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
-  return NextResponse.json({ message: 'Gasto mensal deletado com sucesso' })
 }
