@@ -42,15 +42,16 @@ export interface Transacao {
 }
 
 export interface GastoMensal {
-  id?: number
-  user_id: string
-  mes: string
-  categoria_id: number
-  quantidade: number
-  valor_unitario?: number
-  valor_total?: number
-  created_at?: string
-  updated_at?: string
+  id?: number;
+  user_id: string;
+  mes: string;
+  categoria_id?: number;
+  nome: string;
+  quantidade: number;
+  valor_unitario?: number;
+  valor_total?: number;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface ResumoMensal {

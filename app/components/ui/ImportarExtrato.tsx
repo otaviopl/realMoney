@@ -32,22 +32,26 @@ export default function ImportarExtrato({ isOpen, onClose, onSuccess }: Props) {
       const { data: { user } } = await supabase.auth.getUser()
       
       if (user) {
-        // Usuário logado - usar Supabase
-        const transacoesParaImportar = preview.map(t => ({
-          ...t,
-          user_id: user.id,
-          categoria_id: null,
-          contato_id: null
-        }))
-        
-        const { data, error } = await supabase
-          .from('transacoes')
-          .insert(transacoesParaImportar)
-          .select()
-        
-        if (error) throw error
-        
-        toast.success(`${data.length} transação(ões) importada(s) com sucesso!`)
+        // Usuário logado - usar API de importação que tem verificação de duplicatas
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error('Usuário não autenticado');
+
+        const response = await fetch('/api/transactions/import', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'sb-access-token': session.access_token
+          },
+          body: JSON.stringify(preview)
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Erro na importação');
+        }
+
+        const result = await response.json();
+        toast.success(result.message);
       } else {
         // Usuário não logado - usar localStorage
         const existingTransactions = JSON.parse(localStorage.getItem('transacoes') || '[]')
@@ -71,7 +75,7 @@ export default function ImportarExtrato({ isOpen, onClose, onSuccess }: Props) {
       onSuccess?.() // Chamar callback de sucesso se fornecido
     } catch (error) {
       console.error('Erro na importação:', error)
-      toast.error('Erro ao importar transações. Tente novamente.')
+      toast.error(error instanceof Error ? error.message : 'Erro na importação')
     } finally {
       setIsImporting(false)
     }

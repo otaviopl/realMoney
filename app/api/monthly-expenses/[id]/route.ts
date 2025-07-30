@@ -18,10 +18,16 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     const { id } = params
     const body = await req.json()
     
-    // Calcular valor_total se necessário
+    let valorTotalCalculado = 0;
+    if (body.type === 'fixed') {
+      valorTotalCalculado = body.valor_total;
+    } else if (body.type === 'variable') {
+      valorTotalCalculado = body.quantidade * (body.valor_unitario || 0);
+    }
+
     const gastoData = {
       ...body,
-      valor_total: body.valor_total || (body.quantidade * (body.valor_unitario || 0))
+      valor_total: valorTotalCalculado
     }
     
     const { data, error } = await supabase

@@ -1,174 +1,253 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+import { obterResumoDetalhado, validarCalculos } from '../../lib/calculoAutomatico';
+import type { Transacao, GastoMensal } from '../../types/types';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+);
 
 export async function GET(req: NextRequest) {
   try {
-    const token = req.headers.get('sb-access-token') || ''
+    const token = req.headers.get('sb-access-token') || '';
+    
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      console.error('Supabase environment variables not configured');
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+    }
+    
     const supabaseWithAuth = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
       { global: { headers: { Authorization: `Bearer ${token}` } } }
-    )
+    );
 
-    // Verificar usuário autenticado
-    const { data: { user } } = await supabaseWithAuth.auth.getUser()
+    const { data: { user }, error: userError } = await supabaseWithAuth.auth.getUser();
+    if (userError) {
+      console.error('Error getting user:', userError);
+      return NextResponse.json({ error: 'Authentication error' }, { status: 401 });
+    }
+    
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Buscar transações
-    const { data: transacoes, error: transacoesError } = await supabaseWithAuth
-      .from('transacoes')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('data', { ascending: false })
+    const { searchParams } = new URL(req.url);
+    const salario = Number(searchParams.get('salario')) || 0;
 
-    if (transacoesError) throw transacoesError
+    // Buscar dados com tratamento de erro individual
+    let transacoes: any[] = [];
+    let gastosMensais: any[] = [];
+    let categorias: any[] = [];
+    let contatos: any[] = [];
 
-    // Buscar categorias
-    const { data: categorias, error: categoriasError } = await supabaseWithAuth
-      .from('categorias')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('nome')
+    try {
+      const { data: transacoesData, error: transacoesError } = await supabaseWithAuth
+        .from('transacoes')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('data', { ascending: false });
 
-    if (categoriasError) throw categoriasError
+      if (transacoesError) {
+        console.error('Error fetching transacoes:', transacoesError);
+        // Continue with empty array instead of throwing
+      } else {
+        transacoes = transacoesData || [];
+      }
+    } catch (error) {
+      console.error('Exception fetching transacoes:', error);
+      transacoes = [];
+    }
 
-    // Buscar contatos
-    const { data: contatos, error: contatosError } = await supabaseWithAuth
-      .from('contatos')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('nome')
+    try {
+      const { data: gastosData, error: gastosError } = await supabaseWithAuth
+        .from('gastos_mensais')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
 
-    if (contatosError) throw contatosError
+      if (gastosError) {
+        console.error('Error fetching gastos_mensais:', gastosError);
+      } else {
+        gastosMensais = gastosData || [];
+      }
+    } catch (error) {
+      console.error('Exception fetching gastos_mensais:', error);
+      gastosMensais = [];
+    }
 
-    // Buscar configurações
-    const { data: configuracoes, error: configError } = await supabaseWithAuth
-      .from('configuracoes')
-      .select('*')
-      .eq('user_id', user.id)
-      .single()
+    try {
+      const { data: categoriasData, error: categoriasError } = await supabaseWithAuth
+        .from('categorias')
+        .select('*')
+        .eq('user_id', user.id);
 
-    // Configuração pode não existir ainda, então não consideramos erro
-    
-    // Buscar gastos mensais
-    const { data: gastosMensais, error: gastosError } = await supabaseWithAuth
-      .from('gastos_mensais')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
+      if (categoriasError) {
+        console.error('Error fetching categorias:', categoriasError);
+      } else {
+        categorias = categoriasData || [];
+      }
+    } catch (error) {
+      console.error('Exception fetching categorias:', error);
+      categorias = [];
+    }
 
-    if (gastosError) throw gastosError
+    try {
+      const { data: contatosData, error: contatosError } = await supabaseWithAuth
+        .from('contatos')
+        .select('*')
+        .eq('user_id', user.id);
 
-    // Calcular resumos por mês baseado nas transações
-    const resumosPorMes = calcularResumosPorMes(transacoes || [])
+      if (contatosError) {
+        console.error('Error fetching contatos:', contatosError);
+      } else {
+        contatos = contatosData || [];
+      }
+    } catch (error) {
+      console.error('Exception fetching contatos:', error);
+      contatos = [];
+    }
 
-    // Calcular resumo atual (mês mais recente)
+    const transacoesPorMes: { [key: string]: Transacao[] } = {};
+    (transacoes || []).forEach(transacao => {
+      const mes = new Date(transacao.data).toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+      if (!transacoesPorMes[mes]) {
+        transacoesPorMes[mes] = [];
+      }
+      transacoesPorMes[mes].push(transacao);
+    });
+
+    const gastosPorMes: { [key: string]: GastoMensal[] } = {};
+    (gastosMensais || []).forEach(gasto => {
+      const mes = gasto.mes;
+      if (!gastosPorMes[mes]) {
+        gastosPorMes[mes] = [];
+      }
+      gastosPorMes[mes].push(gasto);
+    });
+
+    const meses = Array.from(new Set([...Object.keys(transacoesPorMes), ...Object.keys(gastosPorMes)]));
+
+    const resumosPorMes = meses.map(mes => {
+      try {
+        const resumo = obterResumoDetalhado(
+          transacoesPorMes[mes] || [],
+          gastosPorMes[mes] || [],
+          salario,
+          mes
+        );
+        return { 
+          mes, 
+          ...resumo, 
+          transacoes: (transacoesPorMes[mes] || []).length,
+          // Garantir que salarioDetectado sempre existe
+          salarioDetectado: resumo.salarioDetectado || 0
+        };
+      } catch (error) {
+        console.error(`Error calculating resumo for month ${mes}:`, error);
+        return {
+          mes,
+          totalEntradas: 0,
+          outrasEntradas: 0,
+          totalSaidas: 0,
+          totalDespesasForms: 0,
+          salario: salario,
+          salarioDetectado: 0,
+          saldoFinal: 0,
+          transacoes: (transacoesPorMes[mes] || []).length,
+          detalhesCalculo: {
+            formula: 'Error in calculation',
+            entradas: 0,
+            outrasEntradas: 0,
+            saidas: 0,
+            salario: salario,
+            salarioDetectado: 0,
+            gastosPlanejados: 0,
+            resultado: 'Error'
+          }
+        };
+      }
+    }).sort((a, b) => {
+      try {
+        return new Date(b.mes).getTime() - new Date(a.mes).getTime();
+      } catch {
+        return 0;
+      }
+    });
+
+    // Adicionar resumo GERAL de todas as transações
+    let resumoGeral;
+    try {
+      // Para o resumo geral, calcular salário médio baseado nos meses ou usar o informado
+      const salarioParaResumoGeral = resumosPorMes.length > 0 
+        ? (salario > 0 ? salario * resumosPorMes.length : 0) // Se tem salário informado, multiplicar pelo número de meses
+        : salario;
+        
+      const resumoGeralCalculado = obterResumoDetalhado(
+        transacoes || [],
+        gastosMensais || [],
+        salarioParaResumoGeral
+      );
+      resumoGeral = {
+        ...resumoGeralCalculado,
+        mes: 'Todos os meses',
+        transacoes: (transacoes || []).length,
+        numeroMeses: resumosPorMes.length,
+        // Garantir que salarioDetectado sempre existe
+        salarioDetectado: resumoGeralCalculado.salarioDetectado || 0
+      };
+    } catch (error) {
+      console.error('Error calculating resumo geral:', error);
+      resumoGeral = {
+        totalEntradas: 0,
+        outrasEntradas: 0,
+        totalSaidas: 0,
+        totalDespesasForms: 0,
+        salario: salario,
+        salarioDetectado: 0,
+        saldoFinal: 0,
+        mes: 'Todos os meses',
+        transacoes: (transacoes || []).length,
+        numeroMeses: resumosPorMes.length,
+        detalhesCalculo: {
+          formula: 'Error in calculation',
+          entradas: 0,
+          outrasEntradas: 0,
+          saidas: 0,
+          salario: salario,
+          salarioDetectado: 0,
+          gastosPlanejados: 0,
+          resultado: 'Error'
+        }
+      };
+    }
+
     const resumoAtual = resumosPorMes.length > 0 ? resumosPorMes[0] : {
       totalEntradas: 0,
       totalSaidas: 0,
       totalDespesasForms: 0,
       saldoFinal: 0,
-      detalhesCalculo: {
-        formula: '0 - 0 - 0',
-        entradas: 0,
-        saidas: 0,
-        salario: 0,
-        despesasForms: 0,
-        resultado: 'R$ 0,00'
-      }
-    }
-
-    // Calcular estatísticas gerais
-    const estatisticas = {
-      totalTransacoes: transacoes?.length || 0,
-      totalCategorias: categorias?.length || 0,
-      totalContatos: contatos?.length || 0,
-      mesesComDados: resumosPorMes.length
-    }
+      detalhesCalculo: { formula: '', entradas: 0, saidas: 0, salario: 0, despesasForms: 0, resultado: '' }
+    };
 
     const dashboardData = {
       resumoAtual,
+      resumoGeral, // Novo: resumo de todas as transações
       resumosPorMes,
       transacoes: transacoes || [],
       gastosMensais: gastosMensais || [],
-      configuracoes: configuracoes || {
-        meta_reserva: 12000,
-        saldo_inicial: 0
-      },
       categorias: categorias || [],
       contatos: contatos || [],
-      estatisticas
-    }
+    };
 
-    return NextResponse.json(dashboardData)
+    return NextResponse.json(dashboardData);
 
   } catch (error: any) {
-    console.error('Erro na API dashboard:', error)
+    console.error('Erro na API dashboard:', error);
     return NextResponse.json(
       { error: error.message || 'Erro interno do servidor' },
       { status: 500 }
-    )
+    );
   }
-}
-
-function calcularResumosPorMes(transacoes: any[]) {
-  const resumos: { [key: string]: any } = {}
-
-  transacoes.forEach(transacao => {
-    const data = new Date(transacao.data)
-    const mes = data.toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
-    
-    if (!resumos[mes]) {
-      resumos[mes] = {
-        mes,
-        totalEntradas: 0,
-        totalSaidas: 0,
-        totalDespesasForms: 0,
-        saldoFinal: 0,
-        transacoes: 0,
-        detalhesCalculo: {
-          formula: '',
-          entradas: 0,
-          saidas: 0,
-          salario: 0,
-          despesasForms: 0,
-          resultado: ''
-        }
-      }
-    }
-
-    resumos[mes].transacoes++
-
-    if (transacao.tipo === 'entrada') {
-      resumos[mes].totalEntradas += transacao.valor
-    } else {
-      resumos[mes].totalSaidas += transacao.valor
-    }
-  })
-
-  // Calcular saldo final e detalhes para cada mês
-  Object.values(resumos).forEach((resumo: any) => {
-    resumo.saldoFinal = resumo.totalEntradas - resumo.totalSaidas - resumo.totalDespesasForms
-    
-    resumo.detalhesCalculo = {
-      formula: `${resumo.totalEntradas} - ${resumo.totalSaidas} - ${resumo.totalDespesasForms}`,
-      entradas: resumo.totalEntradas,
-      saidas: resumo.totalSaidas,
-      salario: 0, // Para compatibilidade
-      despesasForms: resumo.totalDespesasForms,
-      resultado: `R$ ${resumo.saldoFinal.toLocaleString('pt-BR')}`
-    }
-  })
-
-  // Ordenar por data (mais recente primeiro)
-  return Object.values(resumos).sort((a: any, b: any) => {
-    return new Date(b.mes).getTime() - new Date(a.mes).getTime()
-  })
 }
