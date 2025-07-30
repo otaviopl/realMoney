@@ -48,6 +48,22 @@ const deleteTransaction = async (id: number): Promise<void> => {
   }
 };
 
+const importMany = async (
+  transactions: Omit<Transacao, "id">[]
+): Promise<Transacao[]> => {
+  const response = await fetch(`${API_URL}/import`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(transactions),
+  });
+  if (!response.ok) {
+    throw new Error("Erro ao importar transações");
+  }
+  return response.json();
+};
+
 export const useTransactions = () => {
   const queryClient = useQueryClient();
 
@@ -77,6 +93,13 @@ export const useTransactions = () => {
     },
   });
 
+  const importMutation = useMutation({
+    mutationFn: importMany,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    },
+  });
+
   return {
     transactions,
     isLoading,
@@ -84,5 +107,6 @@ export const useTransactions = () => {
     createTransaction: createMutation.mutate,
     updateTransaction: updateMutation.mutate,
     deleteTransaction: deleteMutation.mutate,
+    importTransactions: importMutation.mutate,
   };
 };

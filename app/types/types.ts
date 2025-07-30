@@ -14,7 +14,10 @@ export interface Categoria {
   user_id: string
   nome: string
   tipo: 'entrada' | 'saida'
+  unidade?: string
+  preco_unitario?: number
   icone?: string
+  cor?: string
   created_at?: string
 }
 
@@ -36,6 +39,19 @@ export interface Transacao {
   contato_id?: number
   descricao?: string
   created_at?: string
+}
+
+export interface GastoMensal {
+  id?: number;
+  user_id: string;
+  mes: string;
+  categoria_id?: number;
+  nome: string;
+  quantidade: number;
+  valor_unitario?: number;
+  valor_total?: number;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface ResumoMensal {

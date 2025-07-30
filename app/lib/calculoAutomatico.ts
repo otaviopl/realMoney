@@ -1,137 +1,256 @@
-import { Transacao, ResumoMensal, Categoria } from '../types/types'
+import { Transacao, ResumoMensal, Categoria, GastoMensal } from '../types/types';
 
-// Função para calcular automaticamente os valores do resumo mensal baseado nas transações
-export const calcularResumoMensal = (
-  transacoes: Transacao[],
-  categorias: Categoria[],
-  mes: string
-): Partial<ResumoMensal> => {
-  // Filtrar transações do mês específico
-  const transacoesDoMes = transacoes.filter(transacao => {
-    const dataTransacao = new Date(transacao.data)
-    const mesTransacao = dataTransacao.toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
-    return mesTransacao.toLowerCase() === mes.toLowerCase()
-  })
+const normalizeString = (str: string | null | undefined): string => {
+  if (!str) return '';
+  return str
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "");
+};
 
-  // Calcular totais por categoria
-  const totaisPorCategoria: { [key: string]: number } = {}
+/**
+ * Transações que são movimentações internas (transferências entre contas),
+ * pagamentos de fatura ou movimentações de investimento não devem impactar
+ * o cálculo de entradas / saídas. Mantemos a lista em minúsculo, já
+ * normalizada, para facilitar a comparação.
+ */
+const IGNORE_PATTERNS_DEPRECATED = [
+  'aplicacao rdb',              // já estava sendo ignorado
+  'pagamento fatura',           // pagamento de fatura cartão de crédito
+  'fatura',                     // transferência automática Nubank – "FATURA
+  'pagamento',                  // genérico, mas necessário para pegar "PAGAMENTO CARTAO"
+  'resgate',                    // resgates de investimento
+  'transferencia',             // transf. entre contas
+  'pix enviado',
+  'pix recebido'
+];
+
+const isIgnorableDeprecated = (descricao?: string | null): boolean => {
+  const desc = normalizeString(descricao);
+  return IGNORE_PATTERNS_DEPRECATED.some(p => desc.includes(p));
+};
+
+// -- Nova lógica dinâmica de ignorar padrões --
+const GLOBAL_IGNORE_PATTERNS = [
+  'resgate', // resgates de investimento
+  'adicionado',
+  'aplicacao rdb'
+];
+
+const MONTHLY_IGNORE_PATTERNS = [
+  'aplicacao rdb',       // aplicações de investimento
+  'adicionado',
+  'resgate'
+  // REMOVIDO: 'fatura' e 'pagamento' para contabilizar pagamentos de fatura como saídas normais
+];
+
+const isIgnorable = (descricao?: string | null, mes?: string): boolean => {
+  const desc = normalizeString(descricao);
+  const patterns = mes ? MONTHLY_IGNORE_PATTERNS : GLOBAL_IGNORE_PATTERNS;
+  return patterns.some(p => desc.includes(p));
+};
+
+// Função para detectar se é salário baseado no nome/descrição
+const isSalario = (descricao?: string | null): boolean => {
+  if (!descricao) return false;
+  const desc = normalizeString(descricao);
   
-  transacoesDoMes.forEach(transacao => {
-    if (transacao.categoria_id) {
-      const categoria = categorias.find(cat => cat.id === transacao.categoria_id)
-      if (categoria) {
-        const nomeCategoria = categoria.nome.toLowerCase()
-        totaisPorCategoria[nomeCategoria] = (totaisPorCategoria[nomeCategoria] || 0) + Number(transacao.valor)
-      }
-    }
-  })
+  // Padrões que indicam salário (baseado no exemplo: "OTAVIO PEREIRA LOPES")
+  const padroesSalario = [
+    'otavio lopes',
+    'otávio lopes',
+    'otavio pereira lopes',
+    'otávio pereira lopes',
+    'salario',
+    'salário'
+  ];
+  
+  // Verificar se é transferência recebida COM nome do Otávio
+  const isTransferenciaComOtavio = desc.includes('transferencia recebida') && 
+    (desc.includes('otavio') || desc.includes('otávio'));
+  
+  return padroesSalario.some(padrao => desc.includes(padrao)) || isTransferenciaComOtavio;
+};
 
-  // Mapear categorias para campos do resumo
-  // NÃO inicializar com 0 para evitar zerar dados existentes
-  const resumo: Partial<ResumoMensal> = {
-    mes: mes
-    // Campos serão preenchidos apenas se houver transações correspondentes
+export const calcularSaldoComNovaFormula = (
+  transacoes: Transacao[],
+  gastosMensais: GastoMensal[],
+  salario: number,
+  mes?: string
+): number => {
+  let transacoesFiltradas = transacoes;
+  if (mes) {
+    transacoesFiltradas = transacoes.filter(transacao => {
+      const dataTransacao = new Date(transacao.data);
+      const mesTransacao = dataTransacao.toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+      return mesTransacao.toLowerCase() === mes.toLowerCase();
+    });
   }
 
-  // Mapear categorias específicas
-  Object.entries(totaisPorCategoria).forEach(([categoria, valor]) => {
-    switch (categoria) {
-      case 'salário':
-      case 'salario':
-        resumo.salario_liquido = valor
-        break
-      case 'cartão de crédito':
-      case 'cartao de credito':
-      case 'cartão':
-      case 'cartao':
-        resumo.cartao_credito = valor
-        break
-      case 'contas fixas':
-      case 'contas':
-        resumo.contas_fixas = valor
-        break
-      case 'hashish':
-      case 'hash':
-        resumo.hashish = valor
-        break
-      case 'mercado':
-      case 'compras':
-        resumo.mercado = valor
-        break
-      case 'gasolina':
-      case 'combustível':
-      case 'combustivel':
-        resumo.gasolina = valor
-        break
-      case 'flash':
-        resumo.flash = valor
-        break
-      default:
-        resumo.outros = (resumo.outros || 0) + valor
-        break
-    }
-  })
+  // Separar entradas: salário detectado automaticamente vs outras entradas
+  const salarioDetectado = transacoesFiltradas
+    .filter(t => t.tipo === 'entrada' && !isIgnorable(t.descricao, mes) && isSalario(t.descricao))
+    .reduce((total, t) => total + Number(t.valor), 0);
 
-  return resumo
-}
+  const outrasEntradas = transacoesFiltradas
+    .filter(t => t.tipo === 'entrada' && !isIgnorable(t.descricao, mes) && !isSalario(t.descricao))
+    .reduce((total, t) => total + Number(t.valor), 0);
 
-// Função para calcular saldo atual baseado em transações
-export const calcularSaldoAtual = (transacoes: Transacao[]): number => {
-  return transacoes.reduce((saldo, transacao) => {
-    if (transacao.tipo === 'entrada') {
-      return saldo + Number(transacao.valor)
-    } else {
-      return saldo - Number(transacao.valor)
-    }
-  }, 0)
-}
+  // Total de entradas reais (incluindo salário detectado)
+  const totalEntradasReais = salarioDetectado + outrasEntradas;
 
-// Função para calcular total de entradas do mês
-export const calcularTotalEntradas = (transacoes: Transacao[], mes: string): number => {
-  const transacoesDoMes = transacoes.filter(transacao => {
-    const dataTransacao = new Date(transacao.data)
-    const mesTransacao = dataTransacao.toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
-    return mesTransacao.toLowerCase() === mes.toLowerCase() && transacao.tipo === 'entrada'
-  })
+  // Total de saídas reais (incluindo pagamentos de fatura)
+  const totalSaidasReais = transacoesFiltradas
+    .filter(t => t.tipo === 'saida' && !isIgnorable(t.descricao, mes))
+    .reduce((total, t) => total + Number(t.valor), 0);
 
-  return transacoesDoMes.reduce((total, transacao) => total + Number(transacao.valor), 0)
-}
+  // Gastos mensais planejados (que podem não ter sido executados ainda)
+  let gastosMensaisFiltrados = gastosMensais;
+  if (mes) {
+    gastosMensaisFiltrados = gastosMensais.filter(gasto => 
+      gasto.mes.toLowerCase() === mes.toLowerCase()
+    );
+  }
 
-// Função para calcular total de saídas do mês
-export const calcularTotalSaidas = (transacoes: Transacao[], mes: string): number => {
-  const transacoesDoMes = transacoes.filter(transacao => {
-    const dataTransacao = new Date(transacao.data)
-    const mesTransacao = dataTransacao.toLocaleString('pt-BR', { month: 'long', year: 'numeric' })
-    return mesTransacao.toLowerCase() === mes.toLowerCase() && transacao.tipo === 'saida'
-  })
+  const totalGastosPlanejados = gastosMensaisFiltrados.reduce((total, gasto) => {
+    return total + (gasto.valor_total || (gasto.quantidade * (gasto.valor_unitario || 0)));
+  }, 0);
 
-  return transacoesDoMes.reduce((total, transacao) => total + Number(transacao.valor), 0)
-}
-
-// Função para calcular sobra do mês
-export const calcularSobraMensal = (entradas: number, saidas: number): number => {
-  return entradas - saidas
-}
-
-// Função para verificar se deve atualizar resumo automaticamente
-export const deveAtualizarResumoAutomatico = (resumo: ResumoMensal, transacoes: Transacao[], categorias: Categoria[]): boolean => {
-  const resumoCalculado = calcularResumoMensal(transacoes, categorias, resumo.mes)
+  // FÓRMULA SIMPLIFICADA E CORRIGIDA:
+  // Saldo = (Entradas Reais + Salário Manual) - (Saídas Reais) - (Gastos Planejados não executados)
+  // Se salário foi detectado automaticamente, usar esse valor; senão usar o manual
+  const salarioTotal = salarioDetectado > 0 ? salarioDetectado : salario;
   
-  // Comparar valores principais
-  const camposParaComparar = [
-    'salario_liquido',
-    'cartao_credito', 
-    'contas_fixas',
-    'hashish',
-    'mercado',
-    'gasolina',
-    'flash',
-    'outros'
-  ]
+  return (salarioTotal + outrasEntradas) - totalSaidasReais - totalGastosPlanejados;
+};
 
-  return camposParaComparar.some(campo => {
-    const valorAtual = resumo[campo as keyof ResumoMensal] || 0
-    const valorCalculado = resumoCalculado[campo as keyof ResumoMensal] || 0
-    return Math.abs(Number(valorAtual) - Number(valorCalculado)) > 0.01
-  })
-} 
+export const obterResumoDetalhado = (
+  transacoes: Transacao[],
+  gastosMensais: GastoMensal[],
+  salario: number,
+  mes?: string
+) => {
+  let transacoesFiltradas = transacoes;
+  if (mes) {
+    transacoesFiltradas = transacoes.filter(transacao => {
+      const dataTransacao = new Date(transacao.data);
+      const mesTransacao = dataTransacao.toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+      return mesTransacao.toLowerCase() === mes.toLowerCase();
+    });
+  }
+
+  // Separar entradas: salário detectado automaticamente vs outras entradas
+  const salarioDetectado = transacoesFiltradas
+    .filter(t => t.tipo === 'entrada' && !isIgnorable(t.descricao, mes) && isSalario(t.descricao))
+    .reduce((total, t) => total + Number(t.valor), 0);
+
+  const outrasEntradas = transacoesFiltradas
+    .filter(t => t.tipo === 'entrada' && !isIgnorable(t.descricao, mes) && !isSalario(t.descricao))
+    .reduce((total, t) => total + Number(t.valor), 0);
+
+  // Total de saídas reais (incluindo pagamentos de fatura)
+  const totalSaidas = transacoesFiltradas
+    .filter(t => t.tipo === 'saida' && !isIgnorable(t.descricao, mes))
+    .reduce((total, t) => total + Number(t.valor), 0);
+
+  // Gastos mensais planejados
+  let gastosMensaisFiltrados = gastosMensais;
+  if (mes) {
+    gastosMensaisFiltrados = gastosMensais.filter(gasto => 
+      gasto.mes.toLowerCase() === mes.toLowerCase()
+    );
+  }
+
+  const totalGastosPlanejados = gastosMensaisFiltrados.reduce((total, gasto) => {
+    return total + (gasto.valor_total || (gasto.quantidade * (gasto.valor_unitario || 0)));
+  }, 0);
+
+  // Usar salário detectado se disponível, senão usar o manual
+  const salarioTotal = salarioDetectado > 0 ? salarioDetectado : salario;
+  const totalEntradas = salarioTotal + outrasEntradas;
+
+  const saldoFinal = calcularSaldoComNovaFormula(transacoes, gastosMensais, salario, mes);
+
+  // Log for debugging - nova estrutura
+  console.log(`Cálculo para ${mes || 'todos os meses'}:`, {
+    salarioManual: salario,
+    salarioDetectado,
+    salarioTotal,
+    outrasEntradas,
+    totalEntradas,
+    totalSaidas,
+    totalGastosPlanejados,
+    saldoFinal,
+    formula: `(${salarioTotal} + ${outrasEntradas}) - ${totalSaidas} - ${totalGastosPlanejados} = ${saldoFinal}`
+  });
+
+  return {
+    totalEntradas,
+    outrasEntradas,
+    totalSaidas,
+    totalDespesasForms: totalGastosPlanejados, // Renomeado para ficar claro
+    salario: salarioTotal, // Usar o salário efetivo (detectado ou manual)
+    salarioDetectado,
+    saldoFinal,
+    detalhesCalculo: {
+      formula: '(Salário Total + Outras Entradas) - Saídas - Gastos Planejados',
+      entradas: totalEntradas,
+      outrasEntradas,
+      saidas: totalSaidas,
+      salario: salarioTotal,
+      salarioDetectado,
+      gastosPlanejados: totalGastosPlanejados,
+      resultado: `(${salarioTotal} + ${outrasEntradas}) - ${totalSaidas} - ${totalGastosPlanejados} = ${saldoFinal}`
+    }
+  };
+}; 
+
+export const validarCalculos = (
+  transacoes: Transacao[],
+  gastosMensais: GastoMensal[],
+  salario: number,
+  mes?: string
+) => {
+  const resumo = obterResumoDetalhado(transacoes, gastosMensais, salario, mes);
+  
+  const validation = {
+    isValid: true,
+    warnings: [] as string[],
+    errors: [] as string[]
+  };
+
+  // Validar se as transações têm valores válidos
+  const transacoesInvalidas = transacoes.filter(t => 
+    isNaN(Number(t.valor)) || Number(t.valor) <= 0
+  );
+  if (transacoesInvalidas.length > 0) {
+    validation.errors.push(`${transacoesInvalidas.length} transações com valores inválidos encontradas`);
+    validation.isValid = false;
+  }
+
+  // Validar se os gastos mensais têm valores válidos
+  const gastosInvalidos = gastosMensais.filter(g => 
+    isNaN(Number(g.valor_total)) || Number(g.valor_total) <= 0
+  );
+  if (gastosInvalidos.length > 0) {
+    validation.warnings.push(`${gastosInvalidos.length} gastos mensais com valores inválidos encontrados`);
+  }
+
+  // Validar fórmula
+  const calculoManual = (resumo.totalEntradas - resumo.totalSaidas) - (salario - resumo.totalDespesasForms);
+  if (Math.abs(calculoManual - resumo.saldoFinal) > 0.01) {
+    validation.errors.push(`Inconsistência no cálculo: esperado ${calculoManual}, obtido ${resumo.saldoFinal}`);
+    validation.isValid = false;
+  }
+
+  // Verificar se há entradas/saídas não classificadas
+  const transacoesSemTipo = transacoes.filter(t => !t.tipo || (t.tipo !== 'entrada' && t.tipo !== 'saida'));
+  if (transacoesSemTipo.length > 0) {
+    validation.warnings.push(`${transacoesSemTipo.length} transações sem tipo definido`);
+  }
+
+  return {
+    ...resumo,
+    validation
+  };
+};
